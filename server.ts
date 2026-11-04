@@ -177,6 +177,7 @@ async function startServer() {
   });
 
   app.delete('/api/indicators/:id', (req, res) => {
+    if (req.params.id === 'keys_v6') return res.status(403).json({ error: 'Built-in KEYS indicator cannot be deleted.' });
     storageService.deleteIndicator(req.params.id);
     res.json({ success: true });
   });
