@@ -285,6 +285,18 @@ export default function App() {
     }
   };
 
+  const handleDeleteIndicator = async (id: string): Promise<void> => {
+    if (id === 'keys_v6') throw new Error('The built-in KEYS indicator cannot be deleted.');
+    const response = await fetch(`/api/indicators/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`Unable to delete indicator (HTTP ${response.status})`);
+    setIndicators((prev) => prev.filter((indicator) => indicator.id !== id));
+    if (activeIndicator.id === id) {
+      const fallback = indicators.find((indicator) => indicator.id === 'keys_v6') || SAVED_INDICATORS_DEFAULT[0];
+      setActiveIndicator(fallback);
+      setActiveStrategyName(fallback.name);
+    }
+  };
+
   const handleDeleteRuns = async (ids: string[]): Promise<void> => {
     const targets = [...new Set(ids)];
     const running = runs.filter((r) => targets.includes(r.id) && r.status === 'RUNNING');
@@ -414,6 +426,7 @@ export default function App() {
               setActiveStrategyName(indicator.name);
             }}
             onSaveIndicator={handleSaveIndicator}
+            onDeleteIndicator={handleDeleteIndicator}
             onRunBacktest={(params) => handleRunBacktest(undefined, params)}
             onStopBacktest={handleStopBacktest}
             isBacktestRunning={isBacktestRunning}
