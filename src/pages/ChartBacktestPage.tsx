@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { calculateKeysIndicator, toHeikinAshiCandles } from '../engine/indicatorCalculations';
 import { toRenkoCandles } from '../engine/renkoChart';
-import { parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
+import { ORIGINAL_KEYS_PINE_SCRIPT, parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
 
 interface ChartBacktestPageProps {
   activeStrategy: string;
@@ -363,6 +363,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const handleCompileScript = async () => {
     const result = validatePineScript(editorCode);
     if (result.valid) {
+      if (activeIndicator.id === 'keys_v6' && editorCode.trim() !== ORIGINAL_KEYS_PINE_SCRIPT.trim()) {
+        setCompileStatus({ valid: false, message: 'The built-in KEYS strategy is protected. Use Save as New Indicator for a modified Pine script.' });
+        return;
+      }
       const inputs = parsePineScriptInputs(editorCode);
       setCompileStatus({
         valid: true,
