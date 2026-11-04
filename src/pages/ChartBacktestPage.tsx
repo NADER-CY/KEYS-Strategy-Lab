@@ -277,21 +277,21 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigateToPage('results')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">bar_chart</span>
               <span>2. Backtest Results ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('positions')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">layers</span>
               <span>3. Positions & Charts ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('symbols')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">dataset</span>
               <span>4. Symbol Universe ↗</span>
@@ -319,7 +319,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         />
 
         {/* Chart Financial Summary Bar — Readability scale applied */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-[#0b1019] border border-[#172338] text-sm font-mono text-slate-300">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-[#171920] border border-[#172338] text-sm font-mono text-slate-300">
           <div className="flex flex-wrap items-center gap-4">
             <span className="flex items-center gap-1.5">
               Feed:{' '}
@@ -381,7 +381,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   backtestTimeframe: Math.max(1, parseInt(e.target.value) || 5)
                 })
               }
-              className="w-16 bg-[#070b13] border border-[#1b2b44] rounded-lg px-2 py-1 text-center text-base font-bold text-white focus:outline-none focus:border-blue-500 font-mono"
+              className="w-16 bg-[#171920] border border-[#1b2b44] rounded-lg px-2 py-1 text-center text-base font-bold text-white focus:outline-none focus:border-blue-500 font-mono"
             />
             <span className="text-slate-400 text-sm">min</span>
           </div>
@@ -389,10 +389,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       </section>
 
       {/* ─── 2. SUB-TABS NAVIGATION & SETTINGS PANELS ───────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+      <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-4">
         {/* Navigation Tabs Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#152236]">
-          <div className="flex items-center bg-[#070b13] p-1.5 rounded-xl border border-[#1a2436] space-x-1.5">
+          <div className="flex items-center bg-[#171920] p-1.5 rounded-xl border border-[#1a2436] space-x-1.5">
             <button
               onClick={() => setActiveTab('strategy')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
@@ -450,7 +450,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 const found = indicators.find((ind) => ind.id === e.target.value);
                 if (found) onSelectIndicator(found);
               }}
-              className="bg-[#070d18] border border-[#19273c] text-sm font-semibold text-slate-100 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="bg-[#171920] border border-[#19273c] text-sm font-semibold text-slate-100 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               {indicators.map((ind) => (
                 <option key={ind.id} value={ind.id}>
@@ -483,7 +483,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             {/* 3 Columns Configuration Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Column 1: Market & Symbol Universe */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3.5">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3.5">
                 <div className="flex items-center space-x-2 text-sm font-bold text-slate-200 pb-2 border-b border-[#142033]">
                   <span className="material-symbols-outlined text-amber-400 !text-lg">hub</span>
                   <span>Market & Symbol Universe</span>
@@ -504,7 +504,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     onChange={(e) =>
                       onUpdatePortfolioConfig({ ...portfolioConfig, savedGroupId: e.target.value })
                     }
-                    className="w-full bg-[#09111e] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
+                    className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
                   >
                     {savedGroups.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -524,7 +524,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                         exchange: e.target.value as any
                       })
                     }
-                    className="w-full bg-[#09111e] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 capitalize font-medium"
+                    className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 capitalize font-medium"
                   >
                     <option value="bybit">Bybit (USDT Perpetual)</option>
                     <option value="binance">Binance (USDT-M Futures)</option>
@@ -552,7 +552,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                         maxOpenPositions: parseInt(e.target.value) || 100
                       })
                     }
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -562,7 +562,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               </div>
 
               {/* Column 2: Capital, Sizing & Margin Allocation */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3.5">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3.5">
                 <div className="flex items-center space-x-2 text-sm font-bold text-slate-200 pb-2 border-b border-[#142033]">
                   <span className="material-symbols-outlined text-amber-400 !text-lg">payments</span>
                   <span>Capital & Margin Allocation</span>
@@ -581,7 +581,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           initialCapital: parseFloat(e.target.value) || 300
                         })
                       }
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -596,13 +596,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           positionSizeNotional: parseFloat(e.target.value) || 10
                         })
                       }
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
 
                 {/* Leverage Modes A & B */}
-                <div className="p-3 rounded-lg bg-[#09111e] border border-[#19273c] space-y-2.5">
+                <div className="p-3 rounded-lg bg-[#171920] border border-[#19273c] space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center space-x-2.5 cursor-pointer">
                       <input
@@ -635,7 +635,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           manualLeverage: parseInt(e.target.value) || 10
                         })
                       }
-                      className={`w-24 bg-[#070b13] border border-[#1b2b44] rounded-lg px-2.5 py-1 text-base text-center font-bold font-mono ${
+                      className={`w-24 bg-[#171920] border border-[#1b2b44] rounded-lg px-2.5 py-1 text-base text-center font-bold font-mono ${
                         portfolioConfig.useMaxLeverage ? 'opacity-40 text-slate-500' : 'text-amber-400'
                       }`}
                     />
@@ -659,7 +659,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                         marginMode: e.target.value as any
                       })
                     }
-                    className="w-full bg-[#09111e] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
+                    className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
                   >
                     <option value="cross">Cross Margin (Shared Portfolio Equity)</option>
                     <option value="isolated">Isolated Margin (Independent Risk)</option>
@@ -668,7 +668,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               </div>
 
               {/* Column 3: Timing, Limits & Execution */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3.5">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3.5">
                 <div className="flex items-center space-x-2 text-sm font-bold text-slate-200 pb-2 border-b border-[#142033]">
                   <span className="material-symbols-outlined text-amber-400 !text-lg">hourglass_top</span>
                   <span>Execution & Cycle Limits</span>
@@ -689,7 +689,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           cycleFromDay: parseInt(e.target.value) || 1
                         })
                       }
-                      className="w-20 bg-[#09111e] border border-[#19273c] rounded-lg px-2 py-1.5 text-base text-slate-100 text-center font-mono font-bold"
+                      className="w-20 bg-[#171920] border border-[#19273c] rounded-lg px-2 py-1.5 text-base text-slate-100 text-center font-mono font-bold"
                     />
                     <span className="text-sm text-slate-400">To</span>
                     <input
@@ -703,7 +703,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           cycleToDay: parseInt(e.target.value) || 7
                         })
                       }
-                      className="w-20 bg-[#09111e] border border-[#19273c] rounded-lg px-2 py-1.5 text-base text-slate-100 text-center font-mono font-bold"
+                      className="w-20 bg-[#171920] border border-[#19273c] rounded-lg px-2 py-1.5 text-base text-slate-100 text-center font-mono font-bold"
                     />
                     <span className="text-sm text-slate-300 font-medium">Days</span>
                   </div>
@@ -724,7 +724,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                         backtestTimeframe: Math.max(1, parseInt(e.target.value) || 5)
                       })
                     }
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base text-white font-mono font-bold rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base text-white font-mono font-bold rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                   />
                   <p className="text-xs text-slate-400 mt-1">Supports standard minutes: 5, 15, 30, 60, 240, 1440</p>
                 </div>
@@ -741,7 +741,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           maxDrawdownCutoff: parseFloat(e.target.value) || 15
                         })
                       }
-                      className="w-full bg-[#09111e] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
+                      className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
                     />
                   </div>
                   <div>
@@ -756,7 +756,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                           slippageTolerance: parseFloat(e.target.value) || 0.05
                         })
                       }
-                      className="w-full bg-[#09111e] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
+                      className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -776,7 +776,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </h2>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center space-x-2 cursor-pointer bg-[#070d18] px-3 py-1.5 rounded-lg border border-[#19273c]">
+                <label className="flex items-center space-x-2 cursor-pointer bg-[#171920] px-3 py-1.5 rounded-lg border border-[#19273c]">
                   <input
                     type="checkbox"
                     checked={pnlConfig.fixedFloorEnabled}
@@ -801,7 +801,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             </div>
 
             {/* Explanation card */}
-            <div className="p-3.5 rounded-xl bg-[#070d18] border border-[#19273c] text-sm text-slate-300 flex items-start space-x-3 leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-[#171920] border border-[#19273c] text-sm text-slate-300 flex items-start space-x-3 leading-relaxed">
               <span className="text-blue-400 font-bold text-lg mt-0.5">ⓘ</span>
               <div>
                 <strong>Accounting Model:</strong> Basket PnL evaluates cumulative cycle net equity relative to initial balance.
@@ -816,7 +816,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             </div>
 
             {/* EXACT 5 EDITABLE ROWS TABLE */}
-            <div className="overflow-x-auto bg-[#070d18] border border-[#19273c] rounded-xl p-4">
+            <div className="overflow-x-auto bg-[#171920] border border-[#19273c] rounded-xl p-4">
               <table className="w-full text-left font-mono">
                 <thead>
                   <tr className="border-b border-[#172338] text-xs text-slate-400 font-semibold uppercase tracking-wider">
@@ -832,7 +832,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     const midPeak = (row.fromPct + row.toPct) / 2;
                     const exampleFloor = (midPeak * (1 - row.dropPct / 100)).toFixed(1);
                     return (
-                      <tr key={idx} className="hover:bg-[#0c1424]/40 transition">
+                      <tr key={idx} className="hover:bg-[#171920]/40 transition">
                         <td className="py-3 px-3 text-slate-400 font-bold text-sm">{idx + 1}</td>
                         <td className="py-3 px-3">
                           <input
@@ -843,7 +843,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                               updated[idx].fromPct = parseFloat(e.target.value) || 0;
                               onUpdatePnLConfig({ ...pnlConfig, rules: updated });
                             }}
-                            className="w-28 bg-[#09111e] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
+                            className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
                           />
                         </td>
                         <td className="py-3 px-3">
@@ -855,7 +855,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                               updated[idx].toPct = parseFloat(e.target.value) || 0;
                               onUpdatePnLConfig({ ...pnlConfig, rules: updated });
                             }}
-                            className="w-28 bg-[#09111e] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
+                            className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
                           />
                         </td>
                         <td className="py-3 px-3">
@@ -867,7 +867,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                               updated[idx].dropPct = parseFloat(e.target.value) || 0;
                               onUpdatePnLConfig({ ...pnlConfig, rules: updated });
                             }}
-                            className="w-28 bg-[#09111e] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-amber-400 text-base font-bold text-center focus:border-blue-500"
+                            className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-amber-400 text-base font-bold text-center focus:border-blue-500"
                           />
                         </td>
                         <td className="py-3 px-3 text-sm text-slate-300 font-sans">
@@ -935,7 +935,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             {/* Inputs grouped into 3 clean columns */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Group 1: General & Wick & Volume */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3">
                 <div className="text-sm font-bold text-amber-400 pb-2 border-b border-[#142033] flex items-center gap-2">
                   <span className="material-symbols-outlined !text-lg">show_chart</span>
                   <span>Main Settings & Wick Analysis</span>
@@ -949,7 +949,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     type="number"
                     value={localParams['length'] ?? 200}
                     onChange={(e) => setLocalParams({ ...localParams, length: parseInt(e.target.value) || 200 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -962,7 +962,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     step="0.05"
                     value={localParams['wick_threshold'] ?? 0.6}
                     onChange={(e) => setLocalParams({ ...localParams, wick_threshold: parseFloat(e.target.value) || 0.6 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -972,7 +972,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     type="number"
                     value={localParams['volumeSMA_Period'] ?? 20}
                     onChange={(e) => setLocalParams({ ...localParams, volumeSMA_Period: parseInt(e.target.value) || 20 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -983,13 +983,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     step="0.1"
                     value={localParams['volume_multiplier'] ?? 1.5}
                     onChange={(e) => setLocalParams({ ...localParams, volume_multiplier: parseFloat(e.target.value) || 1.5 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
               </div>
 
               {/* Group 2: RSI & Trend ADX */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3">
                 <div className="text-sm font-bold text-blue-400 pb-2 border-b border-[#142033] flex items-center gap-2">
                   <span className="material-symbols-outlined !text-lg">speed</span>
                   <span>RSI & ADX Trend Settings</span>
@@ -1002,7 +1002,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                       type="number"
                       value={localParams['rsiPeriod'] ?? 14}
                       onChange={(e) => setLocalParams({ ...localParams, rsiPeriod: parseInt(e.target.value) || 14 })}
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                     />
                   </div>
                   <div>
@@ -1011,7 +1011,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                       type="number"
                       value={localParams['adxlen'] ?? 14}
                       onChange={(e) => setLocalParams({ ...localParams, adxlen: parseInt(e.target.value) || 14 })}
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                     />
                   </div>
                 </div>
@@ -1023,7 +1023,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                       type="number"
                       value={localParams['rsiOversold_Level'] ?? 30}
                       onChange={(e) => setLocalParams({ ...localParams, rsiOversold_Level: parseInt(e.target.value) || 30 })}
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-[#0BBA74] rounded-lg px-3 py-1.5"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-[#0BBA74] rounded-lg px-3 py-1.5"
                     />
                   </div>
                   <div>
@@ -1032,7 +1032,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                       type="number"
                       value={localParams['rsiOverbought_Level'] ?? 70}
                       onChange={(e) => setLocalParams({ ...localParams, rsiOverbought_Level: parseInt(e.target.value) || 70 })}
-                      className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-[#FF4761] rounded-lg px-3 py-1.5"
+                      className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-[#FF4761] rounded-lg px-3 py-1.5"
                     />
                   </div>
                 </div>
@@ -1043,7 +1043,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     type="number"
                     value={localParams['dilen'] ?? 14}
                     onChange={(e) => setLocalParams({ ...localParams, dilen: parseInt(e.target.value) || 14 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -1053,19 +1053,19 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     type="number"
                     value={localParams['Adx_trendThreshold'] ?? 30}
                     onChange={(e) => setLocalParams({ ...localParams, Adx_trendThreshold: parseInt(e.target.value) || 30 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
               </div>
 
               {/* Group 3: Parabolic SAR Filter */}
-              <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3">
+              <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3">
                 <div className="text-sm font-bold text-emerald-400 pb-2 border-b border-[#142033] flex items-center gap-2">
                   <span className="material-symbols-outlined !text-lg">filter_alt</span>
                   <span>Parabolic SAR Filter</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg bg-[#09111e] border border-[#19273c]">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-[#171920] border border-[#19273c]">
                   <span className="text-sm font-semibold text-slate-200">Enable SAR Direction Filter</span>
                   <input
                     type="checkbox"
@@ -1082,7 +1082,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     step="0.005"
                     value={localParams['sarStart'] ?? 0.02}
                     onChange={(e) => setLocalParams({ ...localParams, sarStart: parseFloat(e.target.value) || 0.02 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -1093,7 +1093,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     step="0.005"
                     value={localParams['sarIncrement'] ?? 0.02}
                     onChange={(e) => setLocalParams({ ...localParams, sarIncrement: parseFloat(e.target.value) || 0.02 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
 
@@ -1104,7 +1104,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     step="0.05"
                     value={localParams['sarMaximum'] ?? 0.2}
                     onChange={(e) => setLocalParams({ ...localParams, sarMaximum: parseFloat(e.target.value) || 0.2 })}
-                    className="w-full bg-[#09111e] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
+                    className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-slate-100 rounded-lg px-3 py-1.5"
                   />
                 </div>
               </div>
@@ -1151,8 +1151,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             </div>
 
             {/* Code Editor */}
-            <div className="relative rounded-xl border border-[#19273c] bg-[#070b14] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2 bg-[#0a101c] border-b border-[#152236] text-xs text-slate-300 font-mono">
+            <div className="relative rounded-xl border border-[#19273c] bg-[#171920] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#171920] border-b border-[#152236] text-xs text-slate-300 font-mono">
                 <span>KEYS_Strategy_Indicator.pine</span>
                 <span>Auto-discovers input(), input.int(), input.float(), input.bool()</span>
               </div>
@@ -1160,7 +1160,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 value={editorCode}
                 onChange={(e) => setEditorCode(e.target.value)}
                 rows={14}
-                className="w-full bg-[#070b14] p-4 text-sm font-mono text-emerald-300 leading-relaxed focus:outline-none resize-y selection:bg-blue-600 selection:text-white"
+                className="w-full bg-[#171920] p-4 text-sm font-mono text-emerald-300 leading-relaxed focus:outline-none resize-y selection:bg-blue-600 selection:text-white"
                 spellCheck={false}
               />
             </div>
@@ -1169,7 +1169,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       </section>
 
       {/* ─── 3. BOTTOM GREEN ACTION BAR ─────────────────────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 shadow-xl">
+      <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <button
@@ -1195,7 +1195,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               className={`px-5 py-3 rounded-xl border text-sm font-bold flex items-center space-x-2 transition ${
                 isBacktestRunning
                   ? 'bg-rose-950/40 border-rose-700/60 text-rose-300 hover:bg-rose-900/50'
-                  : 'bg-[#070b13] border-[#1a2436] text-slate-600 cursor-not-allowed'
+                  : 'bg-[#171920] border-[#1a2436] text-slate-600 cursor-not-allowed'
               }`}
             >
               <span className="material-symbols-outlined !text-[18px]">stop</span>
