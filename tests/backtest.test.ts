@@ -15,6 +15,7 @@ import {
 import { exchangeService } from '../server/exchanges';
 import { storageService } from '../server/storage';
 import { BacktestService } from '../server/backtestService';
+import { SAVED_INDICATORS_DEFAULT } from '../src/engine/defaultPineScripts';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
 import { OHLCV, PortfolioConfig, PnLConfig, PositionTrade } from '../src/types';
 
@@ -75,6 +76,10 @@ async function runTestSuite() {
   assert(heldPosition.status === 'OPEN' && !heldPosition.exitTime && !heldPosition.exitReason,
     'End-of-window valuation must preserve open position and avoid synthetic exit');
   assert(heldPosition.feePaid === 0.0055, 'End-of-window valuation must not charge an exit fee');
+  const sarDefault = SAVED_INDICATORS_DEFAULT.find((indicator) => indicator.id === 'keys_v6')
+    ?.params.find((param) => param.name === 'useSARFilter');
+  assert(sarDefault?.default === true && sarDefault.value === true,
+    'KEYS v6 default must match Pine input.bool(true) for SAR filtering');
 
   // ──────────────────────────────────────────────────────────────────────────
   // TEST 1: KEYS signal formulas
