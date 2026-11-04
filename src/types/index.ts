@@ -25,7 +25,7 @@ export interface SymbolMeta {
   minNotional: number;
   pricePrecision: number;
   quantityPrecision: number;
-  category: 'LAYER1' | 'LAYER2' | 'DeFi' | 'AI' | 'GameFi' | 'Meme' | 'Payments' | 'NFT';
+  category: 'LAYER1' | 'LAYER2' | 'DeFi' | 'AI' | 'GameFi' | 'Meme' | 'Payments' | 'NFT' | 'Other';
   lastPrice: number;
   change24h: number;
   volume24h: number;
