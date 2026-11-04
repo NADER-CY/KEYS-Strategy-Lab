@@ -11,6 +11,7 @@ import {
   BacktestRun
 } from '../types';
 import { calculateKeysIndicator, toHeikinAshiCandles } from '../engine/indicatorCalculations';
+import { toRenkoCandles } from '../engine/renkoChart';
 import { parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
 
 interface ChartBacktestPageProps {
@@ -109,7 +110,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Every chart interval exposes the full prior year; first render stays fast.
   const chartHistoryBars = Math.ceil(365 * 1440 / chartTimeframe);
   const [candles, setCandles] = useState<OHLCV[]>([]);
-  const displayCandles = useMemo(() => toHeikinAshiCandles(candles), [candles]);
+  const [chartCandleType, setChartCandleType] = useState<'regular' | 'heikin_ashi' | 'renko'>('heikin_ashi');
+  const displayCandles = useMemo(() => chartCandleType === 'regular' ? candles :
+    chartCandleType === 'renko' ? toRenkoCandles(candles, chartTimeframe) : toHeikinAshiCandles(candles),
+  [candles, chartCandleType, chartTimeframe]);
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
   const [loadingChart, setLoadingChart] = useState<boolean>(false);
   const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
@@ -162,6 +166,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     setFeedHealthy(false);
     const fetchCandles = async () => {
       setLoadingChart(true);
+      let recentCandles: OHLCV[] = [];
       try {
         // Display a small recent window immediately when switching markets.
         // A selected 3m/1y history is fetched in the background and merged
@@ -174,8 +179,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         if (res.ok) {
           const data = await res.json();
           if (!isCancelled && Array.isArray(data)) {
+            recentCandles = data;
             setCandles(data);
-            const calculated = calculateKeysIndicator(data, localParams);
+            const calculated = calculateKeysIndicator(data, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
             setSignals(calculated);
             setLastRefreshedAt(new Date());
           }
@@ -186,22 +192,46 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         if (!isCancelled) setLoadingChart(false);
       }
 
-      if (chartHistoryBars > 400 && !isCancelled) {
+      if (chartHistoryBars > 400 && !isCancelled && recentCandles.length > 0) {
         try {
-          const res = await fetch(
-            `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`,
-            { signal: requestController.signal }
-          );
-          if (res.ok) {
-            const history = await res.json();
-            if (!isCancelled && Array.isArray(history) && history.length) {
+          let cursor = recentCandles[0].time;
+          const cutoff = Math.floor(Date.now() / 1000) - 365 * 86400;
+          let pending: OHLCV[] = [];
+          let pages = 0;
+          while (!isCancelled && cursor > cutoff && pages < Math.ceil(chartHistoryBars / 1000) + 1) {
+            const res = await fetch(
+              `/api/candles/history-page?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&before=${cursor}&limit=1000`,
+              { signal: requestController.signal }
+            );
+            if (!res.ok) throw new Error(`Historical page ${res.status}`);
+            const page: OHLCV[] = await res.json();
+            if (!Array.isArray(page) || !page.length || page[0].time >= cursor) break;
+            pending = [...page, ...pending];
+            cursor = page[0].time;
+            pages++;
+            // Batch chart updates rather than replacing 100k plotted candles
+            // for every small network page.
+            if (pages % 5 === 0 || cursor <= cutoff || page.length < 1000) {
+              const history = pending;
+              pending = [];
               setCandles((previous) => {
                 const merged = new Map<number, OHLCV>();
                 history.forEach((bar: OHLCV) => merged.set(bar.time, bar));
                 previous.forEach((bar) => merged.set(bar.time, bar));
-                return [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
+                return [...merged.values()].sort((a, b) => a.time - b.time)
+                  .filter((bar) => bar.time >= cutoff).slice(-chartHistoryBars);
               });
             }
+            if (page.length < 1000) break;
+          }
+          if (pending.length && !isCancelled) {
+            setCandles((previous) => {
+              const merged = new Map<number, OHLCV>();
+              pending.forEach((bar) => merged.set(bar.time, bar));
+              previous.forEach((bar) => merged.set(bar.time, bar));
+              return [...merged.values()].sort((a, b) => a.time - b.time)
+                .filter((bar) => bar.time >= cutoff).slice(-chartHistoryBars);
+            });
           }
         } catch (err) {
           console.warn('Extended chart history unavailable:', err);
@@ -267,22 +297,25 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Always calculate markers from the full currently displayed history,
   // including the older candles outside the live 400-bar refresh window.
   useEffect(() => {
-    if (candles.length > 0) setSignals(calculateKeysIndicator(candles, localParams));
-  }, [candles, localParams]);
+    if (candles.length > 0) setSignals(calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe }));
+  }, [candles, localParams, chartCandleType, chartTimeframe]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
     setLoadingChart(true);
     try {
       const res = await fetch(
-        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
+        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400`
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setCandles(data);
-          const calculated = calculateKeysIndicator(data, localParams);
-          setSignals(calculated);
+          setCandles((previous) => {
+            const merged = new Map<number, OHLCV>();
+            previous.forEach((bar) => merged.set(bar.time, bar));
+            data.forEach((bar: OHLCV) => merged.set(bar.time, bar));
+            return [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
+          });
           setLastRefreshedAt(new Date());
         }
       }
@@ -294,7 +327,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Re-apply indicator settings to chart
   const handleApplyToChart = () => {
     if (candles.length > 0) {
-      const calculated = calculateKeysIndicator(candles, localParams);
+      const calculated = calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
       setSignals(calculated);
     }
   };
@@ -346,7 +379,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       setLocalParams(newParams);
 
       if (candles.length > 0) {
-        const calculated = calculateKeysIndicator(candles, newParams);
+        const calculated = calculateKeysIndicator(candles, { ...newParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
         setSignals(calculated);
       }
     } else {
@@ -444,11 +477,26 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-1 rounded-lg border border-[#19273c] bg-[#171920] p-1">
+            {([
+              ['regular', 'Candles'],
+              ['heikin_ashi', 'Heikin Ashi'],
+              ['renko', 'Renko']
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setChartCandleType(value)}
+                className={`rounded-md px-2.5 py-1 font-semibold transition ${chartCandleType === value ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'}`}
+              >{label}</button>
+            ))}
+          </div>
           {loadingChart && <span className="text-blue-400">Loading…</span>}
           <span className="text-[#0BBA74]">BUY {signals?.buySignals.length ?? 0}</span>
           <span className="text-[#FF4761]">SELL {signals?.sellSignals.length ?? 0}</span>
         </div>
         <CandlestickChart
+          key={chartCandleType}
           symbol={displayedSymbol}
           onSymbolChange={setCurrentSymbol}
           availableSymbols={chartSymbolList}
@@ -1232,7 +1280,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => onRunBacktest(localParams)}
+              onClick={() => onRunBacktest({ ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })}
               disabled={isBacktestRunning}
               className={`px-8 py-3 rounded-xl text-base font-extrabold flex items-center space-x-2.5 transition shadow-lg ${
                 isBacktestRunning
