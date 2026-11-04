@@ -102,7 +102,7 @@ const { chromium } = await import(playwrightModule);
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 const pageErrors: string[] = [];
-page.on('pageerror', (error) => pageErrors.push(String(error)));
+page.on('pageerror', (error: unknown) => pageErrors.push(String(error)));
 
 try {
   // Test setup: a 2-symbol group and a 30-day / 15m configuration.
