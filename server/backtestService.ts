@@ -57,6 +57,9 @@ export class BacktestService {
     strategyName = 'KEYS v6 Liquidity Trap & SAR',
     indicatorId = 'keys_v6'
   ): Promise<string> {
+    // The temporary research backtest mode never forces an exit due to a
+    // portfolio drawdown threshold. Slippage remains an explicit recorded cost.
+    portfolioConfig = { ...portfolioConfig, maxDrawdownCutoff: 0 };
     const runId = `BT-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // Resolve symbol group
