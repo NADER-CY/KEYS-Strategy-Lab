@@ -87,7 +87,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
 
   if (!activeRun) {
     return (
-      <div className="p-8 text-center bg-[#0b1019] border border-[#172338] rounded-xl text-slate-300 text-base space-y-4">
+      <div className="p-8 text-center bg-[#171920] border border-[#172338] rounded-xl text-slate-300 text-base space-y-4">
         <p>No completed backtest runs found in the system.</p>
         <button
           onClick={onNewBacktest}
@@ -144,21 +144,21 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigateToPage('chart')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">candlestick_chart</span>
               <span>1. Chart Lab ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('results')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">bar_chart</span>
               <span>2. Backtest Results ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('symbols')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">dataset</span>
               <span>4. Universe ↗</span>
@@ -168,7 +168,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
       </div>
 
       {/* ─── HEADER & RUN PICKER ────────────────────────────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+      <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <span className="material-symbols-outlined text-purple-400 !text-2xl">layers</span>
@@ -187,7 +187,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             <select
               value={activeRun.id}
               onChange={(e) => onSelectRun(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] text-sm font-bold text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-mono cursor-pointer"
+              className="bg-[#171920] border border-[#19273c] text-sm font-bold text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-mono cursor-pointer"
             >
               {runs.map((r) => {
                 const pnl = Number(r.netPnl || 0);
@@ -216,21 +216,21 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
 
         {/* Metric Cards Row — 20–24px Primary Values */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-[#142033]">
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Total Positions</span>
             <span className="text-xl sm:text-2xl font-extrabold text-white font-mono mt-1 block tabular-nums">
               {totalPositions}
             </span>
           </div>
 
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Win Rate</span>
             <span className="text-xl sm:text-2xl font-extrabold text-[#0BBA74] font-mono mt-1 block tabular-nums">
               {winRate}%
             </span>
           </div>
 
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Avg Trade PnL</span>
             <span
               className={`text-xl sm:text-2xl font-extrabold font-mono mt-1 block tabular-nums ${
@@ -241,21 +241,21 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             </span>
           </div>
 
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Best Trade</span>
             <span className="text-xl sm:text-2xl font-extrabold text-[#0BBA74] font-mono mt-1 block tabular-nums truncate">
               {bestTrade ? `+${bestTrade.pnlPct}%` : '—'}
             </span>
           </div>
 
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Worst Trade</span>
             <span className="text-xl sm:text-2xl font-extrabold text-[#FF4761] font-mono mt-1 block tabular-nums truncate">
               {worstTrade ? `${worstTrade.pnlPct}%` : '—'}
             </span>
           </div>
 
-          <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+          <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Cycles</span>
             <span className="text-xl sm:text-2xl font-extrabold text-amber-300 font-mono mt-1 block tabular-nums">
               {activeRun.completedCycles}
@@ -266,7 +266,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
 
       {/* If no trades in this run */}
       {trades.length === 0 && (
-        <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-8 text-center space-y-4">
+        <section className="bg-[#171920] border border-[#172338] rounded-xl p-8 text-center space-y-4">
           <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
             <span className="material-symbols-outlined !text-3xl">info</span>
           </div>
@@ -306,7 +306,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
 
       {/* ─── DEDICATED POSITION CANDLESTICK CHART (Desktop Height: 520px) ─── */}
       {selectedTrade && (
-        <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-3">
+        <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="px-2.5 py-1 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 font-mono text-sm font-bold">
@@ -378,7 +378,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
       )}
 
       {/* ─── POSITIONS MASTER TABLE & FILTERS ───────────────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+      <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <span>All Simulated Positions ({filteredTrades.length})</span>
@@ -389,7 +389,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             <select
               value={filterSymbol}
               onChange={(e) => setFilterSymbol(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
+              className="bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
             >
               <option value="all">All Symbols ({uniqueSymbols.length})</option>
               {uniqueSymbols.map((s) => (
@@ -402,7 +402,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             <select
               value={filterSide}
               onChange={(e) => setFilterSide(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
+              className="bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
             >
               <option value="all">All Sides</option>
               <option value="BUY">BUY</option>
@@ -412,7 +412,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             <select
               value={filterOutcome}
               onChange={(e) => setFilterOutcome(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
+              className="bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
             >
               <option value="all">All Outcomes</option>
               <option value="win">Winners Only</option>
@@ -422,7 +422,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
             <select
               value={filterCycle}
               onChange={(e) => setFilterCycle(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
+              className="bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-slate-200"
             >
               <option value="all">All Cycles ({uniqueCycles.length})</option>
               {uniqueCycles.map((c) => (
@@ -435,9 +435,9 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
         </div>
 
         {/* Master Positions Table — 15-16px Table Numbers */}
-        <div className="overflow-x-auto bg-[#070d18] border border-[#172338] rounded-xl max-h-[520px]">
+        <div className="overflow-x-auto bg-[#171920] border border-[#172338] rounded-xl max-h-[520px]">
           <table className="w-full text-left font-mono whitespace-nowrap text-sm">
-            <thead className="sticky top-0 z-10 bg-[#0a111e] border-b border-[#172338]">
+            <thead className="sticky top-0 z-10 bg-[#171920] border-b border-[#172338]">
               <tr className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
                 <th className="py-3 px-3">Trade ID</th>
                 <th className="py-3 px-3">Symbol</th>
@@ -468,7 +468,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
                     className={`cursor-pointer transition ${
                       isSelected
                         ? 'bg-blue-950/40 border-l-4 border-l-[#1463FF]'
-                        : 'hover:bg-[#0c1424]/50'
+                        : 'hover:bg-[#171920]/50'
                     }`}
                   >
                     <td className="py-3 px-3 text-blue-400 font-semibold">{t.id}</td>
