@@ -119,6 +119,16 @@ async function runTestSuite() {
     for (const v of validRsi) {
       assert(v >= 0 && v <= 100, `RSI value ${v} out of bounds [0, 100]`);
     }
+    assert(rsiVals[4] === null && rsiVals[5] === 100, 'RSI must exclude first undefined price change from Wilder seed');
+    const flatRsi = rsi(Array(20).fill(100), 5);
+    assert(flatRsi[5] === 50, 'RSI with no gains and no losses must be neutral');
+
+    // Pine ADX needs DI length valid differences and then ADX smoothing length.
+    const trendHighs = Array.from({ length: 30 }, (_, i) => 101 + i);
+    const trendLows = Array.from({ length: 30 }, (_, i) => 99 + i);
+    const trendCloses = Array.from({ length: 30 }, (_, i) => 100 + i);
+    const trendAdx = adx(trendHighs, trendLows, trendCloses, 5, 5).adx;
+    assert(trendAdx[8] === null && trendAdx[9] !== null, 'ADX must not initialize from invalid DI warmup');
 
     // 3. Parabolic SAR test
     const highs = [10, 12, 15, 17, 18, 16, 14, 12];
