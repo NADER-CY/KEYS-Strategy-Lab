@@ -56,7 +56,8 @@ export default function App() {
     slippageTolerance: 0.05,
     feeTakerPct: 0.055,
     feeMakerPct: 0.02,
-    fundingRate8hPct: 0.01
+    fundingRate8hPct: 0.01,
+    maxFundingCostPct: 5
   });
 
   // 5-Stage PnL Rules Configuration
