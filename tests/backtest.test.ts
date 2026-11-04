@@ -280,6 +280,10 @@ async function runTestSuite() {
       assert(native15m.length === 2 && native15m[1].time === 900, 'Native 15m bars must not be re-aggregated');
       await exchangeService.getOHLCVCandles('bybit', 'AKEUSDT', 10, 2);
       assert(observedIntervals[1] === 5, 'Custom 10m timeframe should still aggregate 5m candles');
+      await exchangeService.getOHLCVCandles('bybit', 'AKEUSDT', 10080, 2);
+      await exchangeService.getOHLCVCandles('bybit', 'AKEUSDT', 43200, 2);
+      assert(observedIntervals[2] === 10080 && observedIntervals[3] === 43200,
+        'Weekly/monthly chart must use native Bybit candles, not expensive 5m aggregation');
     } finally {
       service.fetchAndCacheRealBaseCandles = originalFetch;
     }
