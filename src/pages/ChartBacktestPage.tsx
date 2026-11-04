@@ -737,9 +737,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   />
                 </div>
 
-                <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-900/30 text-xs text-blue-300 leading-relaxed">
-                  ⓘ <strong>Saved Symbol Group</strong> defines the tested universe, while <strong>Max Open Positions</strong> limits concurrent open trades. Deterministic admission rule applies for simultaneous signals.
-                </div>
               </div>
 
               {/* Column 2: Capital, Sizing & Margin Allocation */}
