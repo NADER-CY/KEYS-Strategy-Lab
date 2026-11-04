@@ -149,7 +149,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       } else {
         const found = candleLookupRef.current.get(Number(param.time));
         if (found) {
-          setHoveredCandle(found);
+          // Mouse movement within the same bar must not re-render the entire
+          // toolbar and chart on every pixel of movement.
+          setHoveredCandle((previous) => previous?.time === found.time ? previous : found);
         }
       }
     });
@@ -202,6 +204,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     const previous = plottedCandlesRef.current;
     const sameMarket = prevSymbolRef.current === symbol && prevTfRef.current === timeframeMinutes;
+    const visibleTimeRange = sameMarket ? chartApiRef.current.timeScale().getVisibleRange() : null;
     const canUpdateLast = sameMarket && previous.length > 0 &&
       previous[0].time === candles[0].time &&
       candles.length >= previous.length && candles.length <= previous.length + 1 &&
@@ -214,6 +217,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close
       }));
       candleSeriesRef.current.setData(formattedCandles);
+      // When a background 3m/1y download prepends older candles, Lightweight
+      // Charts changes logical bar indices. Restore the *time* viewport to
+      // avoid the visible chart jumping to another month while the user pans.
+      if (visibleTimeRange && previous.length > 0) {
+        chartApiRef.current.timeScale().setVisibleRange(visibleTimeRange);
+      }
     }
     plottedCandlesRef.current = candles;
 
