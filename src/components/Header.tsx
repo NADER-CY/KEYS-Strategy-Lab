@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center: Prominent Horizontal Top Navigation (EXACTLY 4 PAGES, NO LEFT SIDEBAR) */}
         <nav
           aria-label="Main Navigation"
-          className="row-start-1 col-start-1 sm:col-span-2 flex w-full max-w-full items-center justify-start sm:justify-center overflow-x-auto overflow-y-hidden whitespace-nowrap py-1 px-1 gap-5 bg-transparent border-0 shadow-none"
+          className="row-start-1 col-start-1 sm:col-span-2 flex w-full max-w-full items-center justify-start sm:justify-center overflow-x-auto overflow-y-hidden whitespace-nowrap px-1 gap-5 bg-transparent border-0 border-b border-[#243044] shadow-none"
         >
           {pages.map((p, idx) => {
             const isActive = currentPage === p.id;
@@ -83,10 +83,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={p.id}
                 onClick={() => onPageChange(p.id)}
-                className={`flex items-center gap-1.5 px-1 py-1.5 text-xs 2xl:text-sm font-bold transition-colors shrink-0 cursor-pointer bg-transparent border-0 rounded-none hover:text-[#1463FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1463FF] ${
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex items-center gap-1.5 px-1 pt-2 pb-2 text-xs 2xl:text-sm font-bold transition-colors shrink-0 cursor-pointer bg-transparent border-0 border-b-2 -mb-px rounded-none hover:text-[#1463FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1463FF] ${
                   isActive
-                    ? 'text-[#1463FF]'
-                    : 'text-slate-300 hover:text-[#1463FF]'
+                    ? 'text-[#1463FF] border-b-[#1463FF]'
+                    : 'text-slate-300 border-b-transparent hover:text-[#1463FF]'
                 }`}
               >
                 <span className="w-4 h-5 flex items-center justify-center text-[11px] font-mono text-current">
