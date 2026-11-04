@@ -67,6 +67,15 @@ export class BacktestService {
     if (indicatorId !== 'keys_v6' || !indicator || indicator.code.trim() !== ORIGINAL_KEYS_PINE_SCRIPT.trim()) {
       throw new Error('This Pine Script is not supported by the executable backtest engine. Select the original KEYS Liquidity Trap & SAR indicator; arbitrary Pine scripts are not executed.');
     }
+    // Persist and execute the exact same parameter snapshot. Omitted inputs
+    // inherit the saved indicator profile, never an unrelated hardcoded value.
+    const effectiveParams = {
+      ...Object.fromEntries(indicator.params.map((param) => [param.name, param.value])),
+      ...indicatorParams
+    };
+    if (typeof effectiveParams.useSARFilter !== 'boolean') {
+      throw new Error('Enable SAR Filter must be a boolean; refresh the indicator settings and retry.');
+    }
     const testPeriodDays = Number(portfolioConfig.testPeriodDays || 30);
     if (![30, 90, 180, 365].includes(testPeriodDays)) throw new Error('Historical test period must be 30, 90, 180, or 365 days.');
     const symbols = group.symbols;
@@ -101,11 +110,14 @@ export class BacktestService {
       durationSec: 0,
       portfolioConfig,
       pnlConfig,
-      indicatorParams,
+      indicatorParams: effectiveParams,
       equityCurve: [],
       trades: [],
       cycles: [],
-      logs: [`Started backtest ${runId} with ${symbols.length} symbols on ${portfolioConfig.exchange}`]
+      logs: [
+        `Started backtest ${runId} with ${symbols.length} symbols on ${portfolioConfig.exchange}`,
+        `[INDICATOR] KEYS v6 parameter snapshot: ${JSON.stringify(effectiveParams)}`
+      ]
     };
 
     const job: ActiveJob = {
@@ -119,7 +131,7 @@ export class BacktestService {
     storageService.saveBacktestRun(newRun);
 
     // Run execution in background worker process / async
-    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, indicatorParams).catch((err) => {
+    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, effectiveParams).catch((err) => {
       console.error(`Backtest ${runId} error:`, err);
       job.run.status = 'FAILED';
       job.run.error = err.message;
