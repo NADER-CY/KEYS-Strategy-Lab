@@ -302,8 +302,10 @@ export class StorageService {
         r.symbolGroupName = r.symbolGroupName || 'Tab 1 — 100 Symbols';
         r.symbolsCount = r.symbolsCount || 50;
         r.timeframeMinutes = r.timeframeMinutes || 5;
-        r.totalTrades = r.totalTrades || (r.trades ? r.trades.length : 0);
-        r.completedCycles = r.completedCycles || 1;
+        // Zero is meaningful: a run can finish with only OPEN positions and
+        // an unfinished cycle. Do not replace zero with old demo defaults.
+        r.totalTrades = r.totalTrades ?? (r.trades ? r.trades.filter((trade) => trade.status === 'CLOSED').length : 0);
+        r.completedCycles = r.completedCycles ?? (r.cycles?.length ?? 0);
         r.status = r.status || 'COMPLETED';
         r.trades = r.trades || [];
         r.equityCurve = r.equityCurve || [];
