@@ -78,7 +78,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   useEffect(() => {
     if (activeGroup) {
       setSelectedSymbols([...activeGroup.symbols]);
-      setShowSelectedOnly(true);
+      // Empty groups open the full contract list so members can be added.
+      setShowSelectedOnly(activeGroup.symbols.length > 0);
       setSearchQuery('');
       setCurrentPage(1);
       if (activeGroup.exchange !== currentExchange) {
@@ -156,6 +157,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     };
     try {
       await onSaveGroup(updated);
+      setShowSelectedOnly(selectedSymbols.length > 0);
     } catch (error: any) {
       alert(error?.message || 'Failed to save selected symbols.');
     }
@@ -183,7 +185,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   const handleSaveAsNewTab = async (copySelection = false) => {
     const nameInput = window.prompt(
-      copySelection ? 'Enter a name for the duplicated group:' : `Enter a name for the new group (${selectedSymbols.length} selected symbols):`,
+      copySelection ? 'Enter a name for the duplicated group:' : 'Enter a name for the new empty group:',
       ''
     );
     if (nameInput === null) return;
@@ -196,7 +198,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       id: `group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name,
       exchange: currentExchange,
-      symbols: [...new Set(selectedSymbols)],
+      symbols: copySelection ? [...new Set(selectedSymbols)] : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -206,7 +208,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       await onSaveGroup(newGroup);
       setActiveGroupId(newGroup.id);
       setSelectedSymbols([...newGroup.symbols]);
-      setShowSelectedOnly(true);
+      setShowSelectedOnly(copySelection && newGroup.symbols.length > 0);
       setSearchQuery('');
       setCurrentPage(1);
     } catch (error: any) {
@@ -483,7 +485,13 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         {savedGroups.map((group) => (
           <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg border text-sm font-semibold ${activeGroup?.id === group.id ? 'border-[#1463FF] bg-[#1463FF]/15 text-[#D8E2F0]' : 'border-[#19273c] bg-[#171920] text-slate-300'}`}>
             <button type="button" aria-current={activeGroup?.id === group.id ? 'true' : undefined}
-              onClick={() => setActiveGroupId(group.id)}
+              onClick={() => {
+                setActiveGroupId(group.id);
+                setSelectedSymbols([...group.symbols]);
+                setShowSelectedOnly(group.symbols.length > 0);
+                setSearchQuery('');
+                setCurrentPage(1);
+              }}
               className="px-3 py-1.5 hover:text-[#1463FF]">
               {group.name} <span className="text-slate-400 tabular-nums">({group.symbols.length})</span>
             </button>
@@ -516,6 +524,13 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             )}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {showSelectedOnly && (
+              <button type="button" onClick={() => { setShowSelectedOnly(false); setCurrentPage(1); }}
+                className="px-2.5 py-1.5 rounded-lg bg-[#1463FF] text-white text-xs font-semibold inline-flex items-center gap-1">
+                <span className="material-symbols-outlined !text-[16px]">add</span>
+                Add Symbols
+              </button>
+            )}
             <label className="flex shrink-0 items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-300">
               <input type="checkbox" checked={showSelectedOnly}
                 onChange={(e) => { setShowSelectedOnly(e.target.checked); setActiveChunkTab(0); }}
