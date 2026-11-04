@@ -259,6 +259,18 @@ export class BacktestService {
         job.currentDate = `Checked ${processedSymbolCount}/${symbols.length} • ${skippedSymbols.length} skipped`;
         if (processedSymbolCount % 10 === 0) storageService.saveBacktestRun(run);
       } catch (err: any) {
+        // A saved group can contain a contract that has since been delisted.
+        // Skip only an explicit exchange rejection of that symbol; transient
+        // network, rate-limit and server errors must still fail visibly.
+        const reason = String(err?.message || err);
+        if (/\b(?:Symbol Is Invalid|Invalid Symbol|symbol not found|unknown symbol)\b/i.test(reason)) {
+          skippedSymbols.push(sym);
+          processedSymbolCount++;
+          run.logs.push(`[SKIPPED] ${sym}: exchange rejected the contract (${reason}); excluded from the full ${run.testPeriodDays}-day comparison.`);
+          job.progress = Math.min(25, Math.max(1, Math.floor((processedSymbolCount / symbols.length) * 25)));
+          job.currentDate = `Checked ${processedSymbolCount}/${symbols.length} • ${skippedSymbols.length} skipped`;
+          continue;
+        }
         loadError = new Error(`Cannot run complete ${run.testPeriodDays}-day test: ${err.message}`);
         return;
       }
