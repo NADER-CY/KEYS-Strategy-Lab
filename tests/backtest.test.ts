@@ -15,6 +15,7 @@ import {
 import { exchangeService } from '../server/exchanges';
 import { storageService } from '../server/storage';
 import { BacktestService } from '../server/backtestService';
+import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
 import { OHLCV, PortfolioConfig, PnLConfig, PositionTrade } from '../src/types';
 
 interface TestResult {
@@ -61,6 +62,19 @@ async function runTestSuite() {
     }
     return list;
   };
+
+  // A historical cutoff must not turn a still-losing position into a closed trade.
+  const heldPosition: PositionTrade = {
+    id: 'held-1', symbol: 'BTCUSDT', side: 'BUY', entryTime: 100,
+    entryPrice: 100, notional: 10, leverage: 50, margin: 0.2,
+    pnlUsdt: 0, pnlPct: 0, feePaid: 0.0055, fundingPaid: 0.01,
+    status: 'OPEN', cycleIndex: 1
+  };
+  const cutoffPnl = markOpenPositionsAtEnd([heldPosition], () => 90);
+  assert(Math.abs(cutoffPnl + 1) < 1e-9, 'End-of-window floating PnL must use actual final close');
+  assert(heldPosition.status === 'OPEN' && !heldPosition.exitTime && !heldPosition.exitReason,
+    'End-of-window valuation must preserve open position and avoid synthetic exit');
+  assert(heldPosition.feePaid === 0.0055, 'End-of-window valuation must not charge an exit fee');
 
   // ──────────────────────────────────────────────────────────────────────────
   // TEST 1: KEYS signal formulas
