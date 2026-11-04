@@ -22,6 +22,24 @@ export class StorageService {
     this.indicatorsFile = path.join(this.dataDir, 'indicators.json');
 
     this.initDefaultData();
+    this.resetHistoricBacktestsOnce();
+  }
+
+  // One-time authorized reset of historical DEMO/real backtest reports.
+  // Positions & Charts reads trades from the same stored runs, so this clears
+  // both screens without touching symbol groups, indicators or candle caches.
+  // Back up prior records before clearing and never seed demos again.
+  private resetHistoricBacktestsOnce(): void {
+    const marker = path.join(this.dataDir, '.backtests-reset-20261104.done');
+    if (fs.existsSync(marker)) return;
+    const previous = fs.readFileSync(this.backtestsFile, 'utf8');
+    const backup = path.join(this.dataDir, 'backtest_runs.before_reset_20261104.json');
+    if (!fs.existsSync(backup)) {
+      fs.writeFileSync(backup, previous, { encoding: 'utf8', flag: 'wx' });
+    }
+    fs.writeFileSync(this.backtestsFile, '[]', 'utf8');
+    fs.writeFileSync(marker, new Date().toISOString(), 'utf8');
+    console.info('KEYS: backed up and cleared historical backtest runs once');
   }
 
   private initDefaultData() {
