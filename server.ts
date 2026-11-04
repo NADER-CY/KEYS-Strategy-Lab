@@ -28,6 +28,23 @@ async function startServer() {
     res.json(SUPPORTED_EXCHANGES);
   });
 
+  app.get('/api/lab-settings', (_req, res) => {
+    res.json(storageService.getLabSettings());
+  });
+
+  app.put('/api/lab-settings', (req, res) => {
+    const { portfolioConfig, pnlConfig, indicatorId } = req.body || {};
+    if (!portfolioConfig || !pnlConfig || !Array.isArray(pnlConfig.rules) || typeof indicatorId !== 'string') {
+      return res.status(400).json({ error: 'Invalid lab settings' });
+    }
+    try {
+      storageService.saveLabSettings({ portfolioConfig, pnlConfig, indicatorId });
+      res.json({ saved: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 2. Symbols
   app.get('/api/symbols', async (req, res) => {
     try {
