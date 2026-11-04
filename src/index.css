@@ -35,6 +35,12 @@ html, body, #root {
 }
 
 
+/* Keep one continuous outline around the chart itself. */
+#root div.keys-chart-frame.keys-chart-frame {
+  border: 1px solid #26303d;
+  border-radius: 10px;
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
   font-size: 1.15rem;
