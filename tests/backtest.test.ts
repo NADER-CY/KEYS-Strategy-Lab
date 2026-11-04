@@ -19,6 +19,7 @@ import { BacktestService } from '../server/backtestService';
 import { SAVED_INDICATORS_DEFAULT } from '../src/engine/defaultPineScripts';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
 import { calculateExecutedEntryPrice } from '../src/engine/executionPrice';
+import { toRenkoCandles } from '../src/engine/renkoChart';
 import { OHLCV, PortfolioConfig, PnLConfig, PositionTrade } from '../src/types';
 
 interface TestResult {
@@ -245,6 +246,15 @@ async function runTestSuite() {
     assert(ha[1].open === 11 && ha[1].close === 13, 'Heikin Ashi next bar must use previous synthetic open and close');
     assert(ha[1].high === 16 && ha[1].low === 11, 'Heikin Ashi extrema must encompass synthetic body');
     assert(ha[1].volume === 220, 'Heikin Ashi must preserve real exchange volume for Pine volume_spike');
+
+    const renkoFixture = Array.from({ length: 30 }, (_, i) => ({
+      time: i * 900, open: 100, high: 100.2, low: 99.8, close: 100, volume: 100
+    }));
+    renkoFixture.push({ time: 30 * 900, open: 100, high: 110, low: 99.8, close: 110, volume: 200 });
+    const renko = toRenkoCandles(renkoFixture, 15);
+    assert(renko.length > 0, 'Renko visualization should produce bricks on price movement');
+    assert(renko.every((brick, index) => index === 0 || brick.time > renko[index - 1].time),
+      'Renko visual bricks must have strictly increasing chart timestamps');
 
     // Regression: O(n) channel extrema must match the historical window scan.
     const sequence = Array.from({ length: 750 }, (_, i) =>
