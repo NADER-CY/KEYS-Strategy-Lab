@@ -137,7 +137,7 @@ export class BacktestService {
       cycles: [],
       logs: [
         `Started backtest ${runId} with ${symbols.length} symbols on ${portfolioConfig.exchange}`,
-        `[INDICATOR] KEYS v6 parameter snapshot: ${JSON.stringify(effectiveParams)}`
+        `[INDICATOR] ${indicator.name} parameter snapshot: ${JSON.stringify(effectiveParams)}`
       ]
     };
 
@@ -194,12 +194,16 @@ export class BacktestService {
     const signalMap = new Map<string, { buyMap: Map<number, { price: number; reason: string }>; sellMap: Map<number, { price: number; reason: string }>; adxMap: Map<number, number>; rsiMap: Map<number, number> }>();
     const requestedBars = Math.ceil((run.testPeriodDays * 1440) / portfolioConfig.backtestTimeframe);
 
-    for (let symIdx = 0; symIdx < symbols.length; symIdx++) {
-      if (job.stopped) return;
+    let nextSymbolIndex = 0;
+    let loadedSymbolCount = 0;
+    let loadError: Error | null = null;
+    const loadSymbolWorker = async () => {
+      while (!job.stopped && !loadError) {
+      const symIdx = nextSymbolIndex++;
+      if (symIdx >= symbols.length) return;
       const sym = symbols[symIdx];
 
-      job.currentDate = `Loading ${sym} (${symIdx + 1}/${symbols.length})`;
-      job.progress = Math.min(25, Math.max(1, Math.floor(((symIdx + 1) / symbols.length) * 25)));
+      job.currentDate = `Loading ${sym} (${loadedSymbolCount}/${symbols.length})`;
 
       try {
         const candles = await exchangeService.getOHLCVCandles(
@@ -242,10 +246,19 @@ export class BacktestService {
         }
 
         signalMap.set(sym, { buyMap, sellMap, adxMap, rsiMap });
+        loadedSymbolCount++;
+        job.progress = Math.min(25, Math.max(1, Math.floor((loadedSymbolCount / symbols.length) * 25)));
+        job.currentDate = `Loaded ${loadedSymbolCount}/${symbols.length} symbols`;
+        if (loadedSymbolCount % 10 === 0) storageService.saveBacktestRun(run);
       } catch (err: any) {
-        throw new Error(`Cannot run complete ${run.testPeriodDays}-day test: ${err.message}`);
+        loadError = new Error(`Cannot run complete ${run.testPeriodDays}-day test: ${err.message}`);
+        return;
       }
-    }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, symbols.length) }, () => loadSymbolWorker()));
+    if (job.stopped) return;
+    if (loadError) throw loadError;
 
     if (candleMap.size === 0) {
       throw new Error(`Failed to retrieve historical market data for symbols in group on ${portfolioConfig.exchange}.`);
@@ -283,13 +296,33 @@ export class BacktestService {
     const fundingHistory = new Map<string, { time: number; rate: number }[]>();
     const fundingCursor = new Map<string, number>();
     if (portfolioConfig.exchange === 'bybit') {
-      for (const sym of symbols) {
-        if (job.stopped) return;
-        const history = await exchangeService.getBybitFundingHistory(sym, minTime, maxTime);
+      let fundingIndex = 0;
+      let loadedFundingCount = 0;
+      let fundingError: Error | null = null;
+      const loadFundingWorker = async () => {
+        while (!job.stopped && !fundingError) {
+        const sym = symbols[fundingIndex++];
+        if (!sym) return;
+        job.currentDate = `Funding history ${loadedFundingCount}/${symbols.length}`;
+        let history: { time: number; rate: number }[];
+        try {
+          history = await exchangeService.getBybitFundingHistory(sym, minTime, maxTime);
+        } catch (error: any) {
+          fundingError = new Error(`Funding history for ${sym}: ${error.message}`);
+          return;
+        }
         fundingHistory.set(sym, history);
         fundingCursor.set(sym, 0);
         run.logs.push(`[FUNDING] ${sym}: ${history.length} actual historical Bybit funding rates loaded; prior candle close approximates settlement mark price.`);
-      }
+        loadedFundingCount++;
+        job.progress = 25 + Math.floor((loadedFundingCount / symbols.length) * 15);
+        job.currentDate = `Funding loaded ${loadedFundingCount}/${symbols.length}`;
+        if (loadedFundingCount % 10 === 0) storageService.saveBacktestRun(run);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, symbols.length) }, () => loadFundingWorker()));
+      if (job.stopped) return;
+      if (fundingError) throw fundingError;
     } else {
       run.logs.push(`[FUNDING] Historical funding API not implemented for ${portfolioConfig.exchange}; fixed ${portfolioConfig.fundingRate8hPct}% every 8h is a model assumption.`);
     }
@@ -405,7 +438,7 @@ export class BacktestService {
       if (job.stopped) break;
 
       const curTime = timeline[barIdx];
-      const progress = 25 + Math.min(74, Math.floor((barIdx / Math.max(1, timeline.length)) * 74));
+      const progress = 40 + Math.min(59, Math.floor((barIdx / Math.max(1, timeline.length)) * 59));
       job.progress = progress;
       job.currentDate = new Date(curTime * 1000).toISOString().replace('T', ' ').slice(0, 16);
       job.openPositionsCount = openPositions.length;
