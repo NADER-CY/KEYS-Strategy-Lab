@@ -52,6 +52,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const markerPluginRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
   const lineSeriesMapRef = useRef<Map<string, ISeriesApi<any>>>(new Map());
   const candlesRef = useRef<OHLCV[]>(candles);
+  const candleLookupRef = useRef<Map<number, OHLCV>>(new Map());
   const plottedCandlesRef = useRef<OHLCV[]>([]);
   const prevSymbolRef = useRef<string>(symbol);
   const prevTfRef = useRef<number>(timeframeMinutes);
@@ -146,7 +147,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       ) {
         setHoveredCandle(null);
       } else {
-        const found = candlesRef.current.find((c) => c.time === Number(param.time));
+        const found = candleLookupRef.current.get(Number(param.time));
         if (found) {
           setHoveredCandle(found);
         }
@@ -182,11 +183,13 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       markerPluginRef.current?.setMarkers([]);
       plottedCandlesRef.current = [];
       candlesRef.current = [];
+      candleLookupRef.current.clear();
       setHoveredCandle(null);
       return;
     }
 
     candlesRef.current = candles;
+    candleLookupRef.current = new Map(candles.map((bar) => [bar.time, bar]));
 
     // Keep small-cap perpetual prices legible instead of displaying 0.00.
     const referencePrice = candles[candles.length - 1].close;
@@ -197,13 +200,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
     });
 
-    const formattedCandles: CandlestickData<Time>[] = candles.map((c) => ({
-      time: c.time as Time,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close
-    }));
     const previous = plottedCandlesRef.current;
     const sameMarket = prevSymbolRef.current === symbol && prevTfRef.current === timeframeMinutes;
     const canUpdateLast = sameMarket && previous.length > 0 &&
@@ -211,8 +207,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       candles.length >= previous.length && candles.length <= previous.length + 1 &&
       candles[candles.length - 1].time >= previous[previous.length - 1].time;
     if (canUpdateLast) {
-      candleSeriesRef.current.update(formattedCandles[formattedCandles.length - 1]);
+      const c = candles[candles.length - 1];
+      candleSeriesRef.current.update({ time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close });
     } else {
+      const formattedCandles: CandlestickData<Time>[] = candles.map((c) => ({
+        time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close
+      }));
       candleSeriesRef.current.setData(formattedCandles);
     }
     plottedCandlesRef.current = candles;
