@@ -63,12 +63,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showIndicators, setShowIndicators] = useState<boolean>(showIndicatorsProp);
 
   const timeframes = [
-    { label: '5m', minutes: 5 },
-    { label: '15m', minutes: 15 },
-    { label: '30m', minutes: 30 },
-    { label: '1h', minutes: 60 },
+    ...Array.from({ length: 12 }, (_, i) => ({ label: (i + 1) * 5 === 60 ? '1h' : `${(i + 1) * 5}m`, minutes: (i + 1) * 5 })),
+    { label: '2h', minutes: 120 },
     { label: '4h', minutes: 240 },
-    { label: '1D', minutes: 1440 }
+    { label: '1D', minutes: 1440 },
+    { label: '1W', minutes: 10080 },
+    { label: '1M', minutes: 43200 }
   ];
 
   // 1. Initialize Lightweight Charts instance ONCE on container mount or resize
@@ -322,6 +322,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   const lastCandle = candles[candles.length - 1];
   const activeCandle = hoveredCandle || lastCandle;
+  const displayPrecision = lastCandle?.close > 0
+    ? Math.max(2, Math.min(8, Math.ceil(-Math.log10(lastCandle.close)) + 3))
+    : 6;
   const isUp = activeCandle ? activeCandle.close >= activeCandle.open : true;
   const changePct = activeCandle && activeCandle.open > 0
     ? (((activeCandle.close - activeCandle.open) / activeCandle.open) * 100).toFixed(2)
@@ -361,28 +364,22 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           {activeCandle && (
             <div className="flex flex-wrap items-center gap-3 font-mono">
               <span className={`text-xl sm:text-2xl font-extrabold tabular-nums ${isUp ? 'text-[#0BBA74]' : 'text-[#FF4761]'}`}>
-                ${activeCandle.close.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ${activeCandle.close.toLocaleString(undefined, { minimumFractionDigits: displayPrecision, maximumFractionDigits: displayPrecision })}
               </span>
               <span className={`text-sm sm:text-base px-2 py-0.5 rounded-md font-bold tabular-nums ${isUp ? 'bg-emerald-500/15 text-[#0BBA74]' : 'bg-rose-500/15 text-[#FF4761]'}`}>
                 {isUp ? '+' : ''}{changePct}%
-              </span>
-              <span className="hidden md:inline text-slate-400 text-sm tabular-nums space-x-2">
-                <span>O: <strong className="text-slate-100">{activeCandle.open}</strong></span>
-                <span>H: <strong className="text-slate-100">{activeCandle.high}</strong></span>
-                <span>L: <strong className="text-slate-100">{activeCandle.low}</strong></span>
-                <span>V: <strong className="text-slate-100">{activeCandle.volume.toFixed(1)}</strong></span>
               </span>
             </div>
           )}
         </div>
 
         {/* Center: Timeframe Pills */}
-        <div className="flex items-center bg-[#171920] p-1 rounded-xl border border-[#1a2436]">
+        <div className="flex items-center max-w-full overflow-x-auto bg-[#171920] p-1 rounded-xl border border-[#1a2436]">
           {timeframes.map((tf) => (
             <button
               key={tf.label}
               onClick={() => onTimeframeChange && onTimeframeChange(tf.minutes)}
-              className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition ${
+              className={`shrink-0 px-3 py-1.5 text-sm font-semibold rounded-lg transition ${
                 timeframeMinutes === tf.minutes
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white'
