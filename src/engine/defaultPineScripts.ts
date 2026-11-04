@@ -269,12 +269,17 @@ export function parsePineScriptInputs(script: string): IndicatorParam[] {
     }
   }
 
-  // If no params parsed via regex (e.g. specialized syntax), return keys default params
-  if (params.length === 0) {
-    return SAVED_INDICATORS_DEFAULT[0].params;
-  }
-
   return params;
+}
+
+/** Built-in executable adapters; parsing a Pine script is not compilation. */
+export function isUtBotAlertsScript(code: string): boolean {
+  return /xATRTrailingStop\s*:=/.test(code)
+    && /xATR\s*=\s*atr\s*\(\s*c\s*\)/.test(code)
+    && /above\s*=\s*crossover\s*\(\s*ema\s*,\s*xATRTrailingStop\s*\)/.test(code)
+    && /below\s*=\s*crossover\s*\(\s*xATRTrailingStop\s*,\s*ema\s*\)/.test(code)
+    && /buy\s*=\s*src\s*>\s*xATRTrailingStop/.test(code)
+    && /sell\s*=\s*src\s*<\s*xATRTrailingStop/.test(code);
 }
 
 /**
@@ -288,12 +293,12 @@ export function validatePineScript(code: string): { valid: boolean; version: str
   const versionMatch = /\/\/@version=(\d+)/.exec(code);
   const version = versionMatch ? `v${versionMatch[1]}` : 'v6';
 
-  const hasIndicatorOrStrategy = /indicator\s*\(|strategy\s*\(/.test(code);
+  const hasIndicatorOrStrategy = /\b(?:indicator|strategy|study)\s*\(/.test(code);
   if (!hasIndicatorOrStrategy) {
     return {
       valid: false,
       version,
-      error: 'Pine Script must declare either indicator() or strategy() declaration.',
+      error: 'Pine Script must declare indicator(), strategy(), or legacy study().',
       inputsCount: 0
     };
   }
