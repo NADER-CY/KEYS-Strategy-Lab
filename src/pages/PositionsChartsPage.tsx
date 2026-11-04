@@ -6,6 +6,7 @@ interface PositionsChartsPageProps {
   runs: BacktestRun[];
   selectedRunId?: string;
   onSelectRun: (id: string) => void;
+  onDeleteRun: (id: string) => Promise<void>;
   inspectTradeId?: string | null;
   onNewBacktest?: () => void;
   onTestSymbolOnChart?: (symbol: string) => void;
@@ -16,6 +17,7 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
   runs,
   selectedRunId,
   onSelectRun,
+  onDeleteRun,
   inspectTradeId,
   onNewBacktest,
   onTestSymbolOnChart,
@@ -36,6 +38,21 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
   const [filterCycle, setFilterCycle] = useState<string>('all');
   const [tradeCandles, setTradeCandles] = useState<OHLCV[]>([]);
   const [loadingChart, setLoadingChart] = useState<boolean>(false);
+  const [deletingRun, setDeletingRun] = useState<boolean>(false);
+  const deleteCurrentRun = async () => {
+    if (!activeRun || activeRun.status === 'RUNNING' || deletingRun) return;
+    if (!window.confirm(`Delete ${activeRun.id} and all saved positions/trades from this backtest?`)) return;
+    setDeletingRun(true);
+    try {
+      await onDeleteRun(activeRun.id);
+      setSelectedTrade(null);
+      setTradeCandles([]);
+    } catch (error: any) {
+      alert(error?.message || 'Could not delete the selected backtest.');
+    } finally {
+      setDeletingRun(false);
+    }
+  };
 
   // Auto-select inspect trade or first available trade
   useEffect(() => {
@@ -202,6 +219,13 @@ export const PositionsChartsPage: React.FC<PositionsChartsPageProps> = ({
               })}
             </select>
 
+            <button type="button" onClick={deleteCurrentRun}
+              disabled={deletingRun || activeRun.status === 'RUNNING'}
+              title="Delete selected run and all its saved positions"
+              className="px-3 py-2 rounded-lg border border-rose-600/50 text-rose-400 hover:bg-rose-950/40 disabled:opacity-40 text-sm font-semibold flex items-center gap-1">
+              <span className="material-symbols-outlined !text-[17px]">delete</span>
+              Delete Selected Run
+            </button>
             {onNewBacktest && (
               <button
                 onClick={onNewBacktest}
