@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   createChart,
   IChartApi,
@@ -53,6 +54,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   loading = false
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRootRef = useRef<HTMLDivElement>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const markerPluginRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
@@ -75,6 +77,24 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     };
     document.addEventListener('keydown', exitOnEscape);
     return () => document.removeEventListener('keydown', exitOnEscape);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const root = chartRootRef.current;
+    if (root?.requestFullscreen && document.fullscreenElement !== root) {
+      void root.requestFullscreen().catch(() => {
+        // Keep the full-viewport portal fallback if browser fullscreen is blocked.
+      });
+    }
+    const syncExit = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', syncExit);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncExit);
+      if (document.fullscreenElement === root) void document.exitFullscreen().catch(() => {});
+    };
   }, [isFullscreen]);
 
   const timeframes = [
@@ -355,8 +375,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     ? (((activeCandle.close - activeCandle.open) / activeCandle.open) * 100).toFixed(2)
     : '0.00';
 
-  return (
+  const chartElement = (
     <div
+      ref={chartRootRef}
       className={`relative bg-[#171920] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
         isFullscreen ? 'fixed inset-0 z-[100] rounded-none shadow-2xl' : ''
       }`}
@@ -535,4 +556,5 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       </div>
     </div>
   );
+  return isFullscreen ? createPortal(chartElement, document.body) : chartElement;
 };
