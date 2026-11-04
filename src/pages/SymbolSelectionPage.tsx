@@ -63,7 +63,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(() => {
     return activeGroup ? [...activeGroup.symbols] : [];
   });
-  const [tabName, setTabName] = useState<string>(activeGroup ? activeGroup.name : 'Tab 1 — 100 Symbols');
 
   // Filtering & search
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -79,7 +78,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   useEffect(() => {
     if (activeGroup) {
       setSelectedSymbols([...activeGroup.symbols]);
-      setTabName(activeGroup.name);
       if (activeGroup.exchange !== currentExchange) {
         onExchangeChange(activeGroup.exchange);
       }
@@ -145,50 +143,72 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     setSelectedSymbols(top);
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (!activeGroup) return;
     const updated: SavedSymbolGroup = {
       ...activeGroup,
-      name: tabName.trim() || activeGroup.name,
       exchange: currentExchange,
       symbols: [...selectedSymbols],
       updatedAt: new Date().toISOString()
     };
-    onSaveGroup(updated);
-    alert(`Successfully saved ${selectedSymbols.length} symbols to group "${updated.name}"!`);
+    try {
+      await onSaveGroup(updated);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to save selected symbols.');
+    }
   };
 
-  const handleApplyToBacktest = (autoRun = false) => {
+  const handleApplyToBacktest = async (autoRun = false) => {
     if (!activeGroup) return;
+    if (selectedSymbols.length === 0) {
+      alert('Select at least one symbol before starting a backtest.');
+      return;
+    }
     const updated: SavedSymbolGroup = {
       ...activeGroup,
-      name: tabName.trim() || activeGroup.name,
       exchange: currentExchange,
       symbols: [...selectedSymbols],
       updatedAt: new Date().toISOString()
     };
-    onSaveGroup(updated);
-    onApplyUniverseToBacktest(updated.id, autoRun);
+    try {
+      await onSaveGroup(updated);
+      onApplyUniverseToBacktest(updated.id, autoRun);
+    } catch (error: any) {
+      alert(error?.message || 'Could not save selection for backtest.');
+    }
   };
 
-  const handleSaveAsNewTab = (copySelection = false) => {
-    const newId = `group_${Date.now()}`;
-    const nameInput = prompt('Enter a name for the new symbol group:', copySelection ? `${tabName} (Copy)` : 'New USDT Group');
+  const handleSaveAsNewTab = async (copySelection = false) => {
+    const nameInput = window.prompt(
+      copySelection ? 'Enter a name for the duplicated group:' : 'Enter a name for the new empty group:',
+      ''
+    );
     if (nameInput === null) return;
     const name = nameInput.trim();
     if (!name) { alert('Please enter a group name.'); return; }
+    if (savedGroups.some((g) => g.name.toLowerCase() === name.toLowerCase())) {
+      alert('A group with this name already exists.'); return;
+    }
     const newGroup: SavedSymbolGroup = {
-      id: newId,
+      id: `group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name,
       exchange: currentExchange,
       symbols: copySelection ? [...selectedSymbols] : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    onSaveGroup(newGroup);
-    setActiveGroupId(newId);
-    setSelectedSymbols([...newGroup.symbols]);
-    setTabName(newGroup.name);
+    try {
+      // Save first; switching before persistence previously fell back to the
+      // old 50-symbol group while the new group was not in savedGroups yet.
+      await onSaveGroup(newGroup);
+      setActiveGroupId(newGroup.id);
+      setSelectedSymbols([...newGroup.symbols]);
+      setShowSelectedOnly(false);
+      setSearchQuery('');
+      setCurrentPage(1);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to create symbol group.');
+    }
   };
 
   const handleRenameGroup = async () => {
@@ -207,7 +227,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     }
     try {
       await onSaveGroup({ ...activeGroup, name, updatedAt: new Date().toISOString() });
-      setTabName(name);
     } catch (error: any) {
       alert(error?.message || 'Failed to rename this group.');
     }
@@ -230,7 +249,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       if (remaining.length > 0) {
         setActiveGroupId(remaining[0].id);
         setSelectedSymbols([...remaining[0].symbols]);
-        setTabName(remaining[0].name);
       }
     }
   };
@@ -359,6 +377,14 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               >
                 <span className="material-symbols-outlined !text-[18px]">add</span>
                 <span>New Group</span>
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={!activeGroup}
+                className="px-3.5 py-2 rounded-lg bg-[#171920] border border-[#19273c] text-slate-200 hover:text-[#1463FF] text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined !text-[18px]">save</span>
+                <span>Save Selection</span>
               </button>
               <button
                 onClick={handleDuplicateTab}
@@ -609,36 +635,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
           </div>
         </div>
 
-        {/* Bottom Actions Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-3">
-          <div className="flex items-center space-x-3">
-            <span className="text-sm font-semibold text-slate-300">Group Name:</span>
-            <input
-              type="text"
-              value={tabName}
-              onChange={(e) => setTabName(e.target.value)}
-              className="bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-base text-white font-bold w-72 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleSaveChanges}
-              className="px-5 py-2.5 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-bold flex items-center space-x-2 shadow-sm transition"
-            >
-              <span className="material-symbols-outlined !text-[18px]">save</span>
-              <span>Save Selection to Group</span>
-            </button>
-
-            <button
-              onClick={handleSaveAsNewTab}
-              className="px-4 py-2.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-slate-200 text-sm font-semibold flex items-center space-x-1.5 transition"
-            >
-              <span className="material-symbols-outlined !text-[18px]">add_circle</span>
-              <span>Save As New Group</span>
-            </button>
-          </div>
-        </div>
       </section>
     </div>
   );
