@@ -59,7 +59,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
-  const [activeTool, setActiveTool] = useState<string>('pointer');
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [showIndicators, setShowIndicators] = useState<boolean>(showIndicatorsProp);
 
@@ -476,46 +475,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
       {/* Main Chart Area */}
       <div className="relative flex-1 w-full flex" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : `${height}px` }}>
-        {/* Left Drawing Tools Sidebar Toolbar from Stitch */}
-        <div className="w-10 border-r border-[#152236] bg-[#171920] flex flex-col items-center py-2 space-y-2 shrink-0 z-10 text-slate-400">
-          <button
-            onClick={() => setActiveTool('pointer')}
-            className={`p-1.5 rounded-lg transition ${activeTool === 'pointer' ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}`}
-            title="Crosshair"
-          >
-            <span className="material-symbols-outlined !text-[18px]">point_scan</span>
-          </button>
-          <button
-            onClick={() => setActiveTool('trendline')}
-            className={`p-1.5 rounded-lg transition ${activeTool === 'trendline' ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}`}
-            title="Trendline"
-          >
-            <span className="material-symbols-outlined !text-[18px]">show_chart</span>
-          </button>
-          <button
-            onClick={() => setActiveTool('channel')}
-            className={`p-1.5 rounded-lg transition ${activeTool === 'channel' ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}`}
-            title="Channels"
-          >
-            <span className="material-symbols-outlined !text-[18px]">crop_square</span>
-          </button>
-          <button
-            onClick={() => setActiveTool('text')}
-            className={`p-1.5 rounded-lg transition ${activeTool === 'text' ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}`}
-            title="Text Note"
-          >
-            <span className="material-symbols-outlined !text-[18px]">title</span>
-          </button>
-          <div className="w-5 h-[1px] bg-[#1a2436] my-1"></div>
-          <button
-            onClick={() => setActiveTool('clear')}
-            className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition"
-            title="Clear"
-          >
-            <span className="material-symbols-outlined !text-[18px]">delete</span>
-          </button>
-        </div>
-
         {/* Lightweight Charts Canvas Container */}
         <div ref={chartContainerRef} className="flex-1 w-full h-full" />
 
@@ -536,7 +495,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
         {/* Legend Overlay - Minimal when clean, detailed only when overlays enabled */}
         {showIndicators && (
-          <div className="absolute top-3 left-14 z-20 flex flex-wrap items-center gap-2.5 text-xs bg-[#171920]/90 backdrop-blur px-3 py-1.5 rounded-lg border border-[#172338] text-slate-200 pointer-events-none">
+          <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2.5 text-xs bg-[#171920]/90 backdrop-blur px-3 py-1.5 rounded-lg border border-[#172338] text-slate-200 pointer-events-none">
             <span className="text-amber-400 font-bold font-mono">KEYS v6 Indicator</span>
             <span className="text-emerald-400 font-medium">● YPSAR</span>
             <span className="text-orange-400 font-medium">● DPSAR</span>
