@@ -219,7 +219,7 @@ export interface BacktestRun {
 export interface SavedIndicator {
   id: string;
   name: string;
-  version: 'v5' | 'v6';
+  version: 'v4' | 'v5' | 'v6';
   type: 'Indicator' | 'Strategy';
   lastUpdated: string;
   validationStatus: 'Validated' | 'Backtest Ready' | 'Saved' | 'Unsupported';
