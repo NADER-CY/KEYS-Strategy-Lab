@@ -333,7 +333,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                     </td>
                     <td className="py-3 px-3 text-center text-[#0BBA74] font-bold">{winRate.toFixed(1)}%</td>
                     <td className="py-3 px-3 text-center text-rose-400 font-bold">-{Math.abs(maxDd).toFixed(1)}%</td>
-                    <td className="py-3 px-2 text-center text-amber-300 font-extrabold">{r.completedCycles || 1}</td>
+                    <td className="py-3 px-2 text-center text-amber-300 font-extrabold">{r.completedCycles ?? 0}</td>
                     <td className="py-3 px-2 text-center">
                       <span
                         className={`px-2.5 py-1 rounded-md text-xs font-bold ${
