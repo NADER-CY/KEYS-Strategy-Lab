@@ -920,14 +920,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   />
                   <span className="text-sm font-semibold text-slate-200">Fixed Floor Preset Mode</span>
                 </label>
-                <button
-                  onClick={handleSavePnlRules}
-                  disabled={savingPnlRules}
-                  className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
-                >
-                  <span className="material-symbols-outlined !text-[17px]">save</span>
-                  <span>{savingPnlRules ? 'Saving…' : 'Save PnL Rules'}</span>
-                </button>
               </div>
             </div>
             {pnlSaveStatus && (
@@ -935,21 +927,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 {pnlSaveStatus}
               </div>
             )}
-
-            {/* Explanation card */}
-            <div className="p-3.5 rounded-xl bg-[#171920] border border-[#19273c] text-sm text-slate-300 flex items-start space-x-3 leading-relaxed">
-              <span className="text-blue-400 font-bold text-lg mt-0.5">ⓘ</span>
-              <div>
-                <strong>Accounting Model:</strong> Basket PnL evaluates cumulative cycle net equity relative to initial balance.
-                The maximum achieved net cycle profit is continually tracked. When net PnL pulls back from its peak by the configured drop percentage, the entire basket is liquidated.
-                <span className="text-amber-300 font-mono block mt-1 font-bold text-base">
-                  Exit Floor = Peak Profit × (1 − Profit Drop / 100)
-                </span>
-                <span className="text-slate-400 text-xs block mt-0.5">
-                  Example: Peak at +100%, Drop 30% → Liquidate entire basket at +70% floor. Peak at +200%, Drop 30% → Exit at +140% floor.
-                </span>
-              </div>
-            </div>
 
             {/* EXACT 5 EDITABLE ROWS TABLE */}
             <div className="overflow-x-auto bg-[#171920] border border-[#19273c] rounded-xl p-4">
@@ -1036,6 +1013,16 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   Reset Default 5 Ranges
                 </button>
               </div>
+            </div>
+            <div className="flex justify-end pt-2 border-b border-[#26303d] pb-5">
+              <button
+                onClick={handleSavePnlRules}
+                disabled={savingPnlRules}
+                className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
+              >
+                <span className="material-symbols-outlined !text-[17px]">save</span>
+                <span>{savingPnlRules ? 'Saving…' : 'Save PnL Rules'}</span>
+              </button>
             </div>
           </div>
         )}
