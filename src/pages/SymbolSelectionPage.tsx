@@ -310,7 +310,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
           {/* Real Live Selected Counter Badge */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 bg-[#070b13] px-4 py-2 rounded-xl border border-[#19273c]">
+            <div className="flex items-center gap-3 bg-[#171920] px-4 py-2 rounded-xl border border-[#19273c]">
               <div className="text-right">
                 <span className="text-2xl font-bold font-mono text-[#0BBA74] tabular-nums leading-none block">
                   {selectedSymbols.length}
@@ -340,14 +340,14 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               </button>
               <button
                 onClick={handleDuplicateTab}
-                className="px-3.5 py-2 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-slate-200 text-sm font-semibold flex items-center space-x-1.5 transition"
+                className="px-3.5 py-2 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-slate-200 text-sm font-semibold flex items-center space-x-1.5 transition"
               >
                 <span className="material-symbols-outlined !text-[18px]">content_copy</span>
                 <span>Duplicate</span>
               </button>
               <button
                 onClick={handleDeleteTab}
-                className="px-3.5 py-2 rounded-lg bg-[#070b13] hover:bg-rose-950/40 border border-[#19273c] hover:border-rose-800 text-rose-400 text-sm font-semibold flex items-center space-x-1.5 transition"
+                className="px-3.5 py-2 rounded-lg bg-[#171920] hover:bg-rose-950/40 border border-[#19273c] hover:border-rose-800 text-rose-400 text-sm font-semibold flex items-center space-x-1.5 transition"
               >
                 <span className="material-symbols-outlined !text-[18px]">delete</span>
                 <span>Delete</span>
@@ -365,7 +365,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             <select
               value={currentExchange}
               onChange={(e) => onExchangeChange(e.target.value as ExchangeId)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 capitalize focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 capitalize focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="bybit">Bybit (USDT Perpetual)</option>
               <option value="binance">Binance (USDT-M Futures)</option>
@@ -384,7 +384,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             <select
               value={activeGroupId}
               onChange={(e) => setActiveGroupId(e.target.value)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               {savedGroups.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -433,7 +433,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
           {/* Show Selected Only Toggle */}
           <div className="flex items-center gap-2">
-            <label className="flex items-center space-x-2 cursor-pointer bg-[#070b13] px-3 py-1.5 rounded-lg border border-[#19273c]">
+            <label className="flex items-center space-x-2 cursor-pointer bg-[#171920] px-3 py-1.5 rounded-lg border border-[#19273c]">
               <input
                 type="checkbox"
                 checked={showSelectedOnly}
@@ -461,7 +461,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 setSearchQuery(e.target.value);
                 setActiveChunkTab(0);
               }}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
             {searchQuery && (
               <button
@@ -477,13 +477,13 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             <span className="text-xs font-semibold text-slate-400">Select:</span>
             <button
               onClick={handleSelectAll}
-              className="px-3 py-1.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
+              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
             >
               Select All ({currentChunkSymbols.length})
             </button>
             <button
               onClick={handleSelectNone}
-              className="px-3 py-1.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
+              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
             >
               Clear Tab ({selectedInTab})
             </button>
@@ -493,19 +493,19 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             <span className="text-xs font-semibold text-slate-400">Quick:</span>
             <button
               onClick={() => handleSelectTop(50)}
-              className="px-3 py-1.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
+              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
             >
               Top 50
             </button>
             <button
               onClick={() => handleSelectTop(100)}
-              className="px-3 py-1.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
+              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
             >
               Top 100
             </button>
             <button
               onClick={() => setSelectedSymbols(activeGroup ? [...activeGroup.symbols] : [])}
-              className="px-3 py-1.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-sm font-medium text-slate-400 hover:text-white transition"
+              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-medium text-slate-400 hover:text-white transition"
             >
               Reset Group
             </button>
@@ -621,7 +621,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               type="text"
               value={tabName}
               onChange={(e) => setTabName(e.target.value)}
-              className="bg-[#070b13] border border-[#19273c] rounded-lg px-3 py-1.5 text-base text-white font-bold w-72 focus:outline-none focus:border-blue-500"
+              className="bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-base text-white font-bold w-72 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -636,7 +636,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
             <button
               onClick={handleSaveAsNewTab}
-              className="px-4 py-2.5 rounded-lg bg-[#070b13] hover:bg-[#121c2d] border border-[#19273c] text-slate-200 text-sm font-semibold flex items-center space-x-1.5 transition"
+              className="px-4 py-2.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-slate-200 text-sm font-semibold flex items-center space-x-1.5 transition"
             >
               <span className="material-symbols-outlined !text-[18px]">add_circle</span>
               <span>Save As New Group</span>
