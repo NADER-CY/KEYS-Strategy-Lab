@@ -333,17 +333,14 @@ export default function App() {
   };
 
   const handleSaveLabSettings = async () => {
-    try {
-      const response = await fetch('/api/lab-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portfolioConfig, pnlConfig, indicatorId: activeIndicator.id })
-      });
-      if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
-      alert('Settings saved on the server. They will be restored after reloading.');
-    } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
-    }
+    const response = await fetch('/api/lab-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portfolioConfig, pnlConfig, indicatorId: activeIndicator.id })
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+    const result = await response.json();
+    if (result.saved !== true) throw new Error('Server did not confirm saving settings');
   };
 
   const handleLoadLabSettings = async () => {
