@@ -3,7 +3,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { BacktestRun, SavedSymbolGroup, SavedIndicator } from '../src/types';
+import { BacktestRun, SavedSymbolGroup, SavedIndicator, PortfolioConfig, PnLConfig } from '../src/types';
 import { SAVED_INDICATORS_DEFAULT } from '../src/engine/defaultPineScripts';
 
 export class StorageService {
@@ -11,6 +11,7 @@ export class StorageService {
   private groupsFile: string;
   private backtestsFile: string;
   private indicatorsFile: string;
+  private settingsFile: string;
 
   constructor() {
     this.dataDir = path.resolve(process.cwd(), 'data');
@@ -20,9 +21,22 @@ export class StorageService {
     this.groupsFile = path.join(this.dataDir, 'saved_groups.json');
     this.backtestsFile = path.join(this.dataDir, 'backtest_runs.json');
     this.indicatorsFile = path.join(this.dataDir, 'indicators.json');
+    this.settingsFile = path.join(this.dataDir, 'lab_settings.json');
 
     this.initDefaultData();
     this.resetHistoricBacktestsOnce();
+  }
+
+  getLabSettings(): { portfolioConfig: PortfolioConfig; pnlConfig: PnLConfig; indicatorId: string } | null {
+    if (!fs.existsSync(this.settingsFile)) return null;
+    try { return JSON.parse(fs.readFileSync(this.settingsFile, 'utf8')); }
+    catch { return null; }
+  }
+
+  saveLabSettings(settings: { portfolioConfig: PortfolioConfig; pnlConfig: PnLConfig; indicatorId: string }): void {
+    const temporaryFile = `${this.settingsFile}.${process.pid}.tmp`;
+    fs.writeFileSync(temporaryFile, JSON.stringify(settings, null, 2), 'utf8');
+    fs.renameSync(temporaryFile, this.settingsFile);
   }
 
   // One-time authorized reset of historical DEMO/real backtest reports.
