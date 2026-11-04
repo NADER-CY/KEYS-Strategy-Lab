@@ -5,7 +5,8 @@ interface BacktestResultsPageProps {
   runs: BacktestRun[];
   selectedRunId?: string;
   onSelectRun: (id: string) => void;
-  onDeleteRun: (id: string) => void;
+  onDeleteRun: (id: string) => Promise<void>;
+  onDeleteRuns: (ids: string[]) => Promise<void>;
   onInspectTradeOnChart: (runId: string, tradeId: string) => void;
   onNewBacktest: () => void;
   onCloneSettingsToBacktest?: (run: BacktestRun) => void;
@@ -17,6 +18,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
   selectedRunId,
   onSelectRun,
   onDeleteRun,
+  onDeleteRuns,
   onInspectTradeOnChart,
   onNewBacktest,
   onCloneSettingsToBacktest,
@@ -27,6 +29,8 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
   const [modeFilter, setModeFilter] = useState<'all' | 'real' | 'demo'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<string[]>([]);
+  const [deletingRuns, setDeletingRuns] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
   const [detailTab, setDetailTab] = useState<'summary' | 'settings' | 'pnl' | 'params' | 'trades' | 'equity'>('summary');
   const [tradeSearch, setTradeSearch] = useState<string>('');
@@ -51,6 +55,24 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
   });
 
   const activeRun = runs.find((r) => r.id === selectedRunId) || filteredRuns[0] || runs[0];
+  const deletableRuns = filteredRuns.filter((r) => r.status !== 'RUNNING');
+  const allVisibleSelected = deletableRuns.length > 0 && deletableRuns.every((r) => selectedForDeletion.includes(r.id));
+
+  const deleteSelected = async (ids: string[]) => {
+    const allowed = [...new Set(ids)].filter((id) => runs.some((r) => r.id === id && r.status !== 'RUNNING'));
+    if (!allowed.length || deletingRuns) return;
+    if (!window.confirm(`Permanently delete ${allowed.length} backtest run(s) and their saved positions/trades? This cannot be undone.`)) return;
+    setDeletingRuns(true);
+    try {
+      await onDeleteRuns(allowed);
+      setSelectedForDeletion((previous) => previous.filter((id) => !allowed.includes(id)));
+      setSelectedForCompare((previous) => previous.filter((id) => !allowed.includes(id)));
+    } catch (error: any) {
+      alert(error?.message || 'Failed to delete the selected runs. Refresh the list and retry.');
+    } finally {
+      setDeletingRuns(false);
+    }
+  };
 
   const handleToggleCompare = (id: string) => {
     if (selectedForCompare.includes(id)) {
@@ -120,7 +142,15 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {selectedForDeletion.length > 0 && (
+              <button type="button"
+                disabled={deletingRuns}
+                onClick={() => deleteSelected(selectedForDeletion)}
+                className="px-3 py-2 rounded-lg border border-rose-600/50 text-rose-400 hover:bg-rose-950/40 disabled:opacity-40 text-sm font-semibold">
+                Delete Selected ({selectedForDeletion.length})
+              </button>
+            )}
             {selectedForCompare.length >= 2 && (
               <button
                 onClick={() => setShowCompareModal(true)}
@@ -205,7 +235,17 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
           <table className="w-full text-left font-mono whitespace-nowrap">
             <thead>
               <tr className="border-b border-[#172338] text-xs text-slate-400 font-semibold uppercase tracking-wider bg-[#171920]">
-                <th className="py-3 px-3 text-center">#</th>
+                <th className="py-3 px-3 text-center">
+                  <input type="checkbox" aria-label="Select all visible runs for deletion"
+                    checked={allVisibleSelected}
+                    onChange={(e) => {
+                      const visible = deletableRuns.map((r) => r.id);
+                      setSelectedForDeletion((prev) => e.target.checked
+                        ? [...new Set([...prev, ...visible])]
+                        : prev.filter((id) => !visible.includes(id)));
+                    }}
+                    className="w-4 h-4 cursor-pointer accent-[#1463FF]" />
+                </th>
                 <th className="py-3 px-3.5">Run ID</th>
                 <th className="py-3 px-3">Date & Time</th>
                 <th className="py-3 px-3">Exchange</th>
@@ -248,13 +288,17 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                     <td className="py-3 px-3 text-center text-slate-500">
                       <input
                         type="checkbox"
-                        checked={isChecked}
+                        aria-label={`Select ${r.id} for deletion`}
+                        checked={selectedForDeletion.includes(r.id)}
+                        disabled={r.status === 'RUNNING' || deletingRuns}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleCompare(r.id);
+                          const checked = e.target.checked;
+                          setSelectedForDeletion((prev) => checked
+                            ? [...new Set([...prev, r.id])]
+                            : prev.filter((id) => id !== r.id));
                         }}
-                        title="Select for compare"
-                        className="rounded border-slate-700 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer bg-slate-900"
+                        className="rounded border-slate-700 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer bg-slate-900 disabled:opacity-30"
                       />
                     </td>
                     <td className="py-3 px-3.5 font-bold text-white flex items-center gap-2">
@@ -329,8 +373,9 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                           <span className="material-symbols-outlined !text-[17px]">table_view</span>
                         </button>
                         <button
-                          onClick={() => onDeleteRun(r.id)}
-                          title="Delete run"
+                          onClick={() => deleteSelected([r.id])}
+                          disabled={r.status === 'RUNNING' || deletingRuns}
+                          title="Delete run and its saved positions"
                           className="p-1.5 rounded-lg bg-[#171920] hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
                         >
                           <span className="material-symbols-outlined !text-[17px]">delete</span>
