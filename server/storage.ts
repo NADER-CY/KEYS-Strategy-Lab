@@ -412,7 +412,22 @@ export class StorageService {
   getIndicators(): SavedIndicator[] {
     try {
       const data = fs.readFileSync(this.indicatorsFile, 'utf8');
-      return JSON.parse(data);
+      const indicators: SavedIndicator[] = JSON.parse(data);
+      // The initially seeded KEYS v6 profile accidentally disabled SAR,
+      // contrary to its original Pine input.bool(true). Correct ONLY that
+      // untouched seed; preserve all subsequently saved user preferences.
+      const untouchedSeed = indicators.find((indicator) =>
+        indicator.id === 'keys_v6' && indicator.lastUpdated === '2026-11-02 10:45'
+      );
+      const sarParam = untouchedSeed?.params.find((param) => param.name === 'useSARFilter');
+      if (sarParam && sarParam.default === false && sarParam.value === false) {
+        sarParam.default = true;
+        sarParam.value = true;
+        const temporaryFile = `${this.indicatorsFile}.${process.pid}.tmp`;
+        fs.writeFileSync(temporaryFile, JSON.stringify(indicators, null, 2), 'utf8');
+        fs.renameSync(temporaryFile, this.indicatorsFile);
+      }
+      return indicators;
     } catch {
       return SAVED_INDICATORS_DEFAULT;
     }
