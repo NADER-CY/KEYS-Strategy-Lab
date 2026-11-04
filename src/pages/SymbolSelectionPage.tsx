@@ -526,8 +526,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 <col style={{width:'3%'}} />
                 <col style={{width:'9%'}} />
                 <col style={{width:'9%'}} />
-                {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'5.9%'}} />)}
-                <col style={{width:'20%'}} />
+                {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'6.7%'}} />)}
+                <col style={{width:'12%'}} />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-[#101216] text-slate-400 border-b border-white/[0.06]">
                 <tr>
