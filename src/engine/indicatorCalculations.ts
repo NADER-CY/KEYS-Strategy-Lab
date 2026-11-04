@@ -283,18 +283,19 @@ export function rollingExtreme(
   length: number,
   mode: 'highest' | 'lowest'
 ): number[] {
-  const result: number[] = new Array(values.length).fill(0);
+  // Monotonic queue: O(n) instead of scanning 200 candles for every bar.
+  // The result is identical to Pine's rolling highest/lowest on finite OHLC.
+  const result = new Array<number>(values.length);
+  const indices = new Array<number>(values.length);
+  let head = 0;
+  let tail = 0;
   for (let i = 0; i < values.length; i++) {
-    const start = Math.max(0, i - length + 1);
-    let extreme = values[start];
-    for (let j = start + 1; j <= i; j++) {
-      if (mode === 'highest') {
-        if (values[j] > extreme) extreme = values[j];
-      } else {
-        if (values[j] < extreme) extreme = values[j];
-      }
-    }
-    result[i] = extreme;
+    while (head < tail && indices[head] <= i - length) head++;
+    while (head < tail && (mode === 'highest'
+      ? values[indices[tail - 1]] <= values[i]
+      : values[indices[tail - 1]] >= values[i])) tail--;
+    indices[tail++] = i;
+    result[i] = values[indices[head]];
   }
   return result;
 }
