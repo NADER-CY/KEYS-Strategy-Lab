@@ -503,10 +503,13 @@ export class ExchangeDataService {
     requiredCount = 1000,
     live = false
   ): Promise<OHLCV[]> {
-    // We fetch base 5m data if requested timeframe is a multiple of 5 (e.g. 5, 10, 15, 25, 30, 60, 240)
-    // or base 1m data if requested timeframe is not a multiple of 5.
+    // Use the exchange's native 15m candles for indicator/backtest parity with
+    // TradingView's Bybit 15m chart. Reconstructing them from separately cached
+    // 5m candles can change OHLCV and therefore candle-sensitive KEYS signals.
+    // Other custom intervals still use the existing lower-timeframe aggregation.
+    const nativeBybit15m = exchangeId === 'bybit' && timeframeMinutes === 15;
     const isMultipleOf5 = timeframeMinutes % 5 === 0;
-    const baseIntervalMinutes = isMultipleOf5 ? 5 : 1;
+    const baseIntervalMinutes = nativeBybit15m ? 15 : isMultipleOf5 ? 5 : 1;
     const aggregationFactor = timeframeMinutes / baseIntervalMinutes;
     const baseCandlesNeeded = Math.ceil(requiredCount * aggregationFactor);
 
