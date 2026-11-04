@@ -640,6 +640,25 @@ export class ExchangeDataService {
       return cachedCandles;
     }
 
+    // A completed historical cache needs only a recent page on subsequent
+    // backtests. Redownloading the entire year for every symbol is unnecessary.
+    if (!live && hasEnoughHistory && cachedCandles.length >= targetCount) {
+      try {
+        const recent = await this.fetchSingleKlinesPageWithRetry(
+          exchangeId, symbol, intervalMinutes, Date.now()
+        );
+        const merged = new Map<number, OHLCV>();
+        cachedCandles.forEach((c) => merged.set(c.time, c));
+        recent.forEach((c) => merged.set(c.time, c));
+        const updated = [...merged.values()].sort((a, b) => a.time - b.time);
+        fs.writeFileSync(cacheFile, JSON.stringify(updated), 'utf8');
+        return updated;
+      } catch (error: any) {
+        console.warn(`Recent history refresh failed for ${symbol}: ${error.message}`);
+        return cachedCandles;
+      }
+    }
+
     // Download incrementally
     try {
       const fetched = await this.downloadPaginatedKlines(
