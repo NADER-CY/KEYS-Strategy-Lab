@@ -661,22 +661,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         {/* ─── TAB 1: STRATEGY & MANAGEMENT ───────────────────────────────── */}
         {activeTab === 'strategy' && (
           <div className="space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <span className="material-symbols-outlined text-amber-400 !text-xl">account_balance_wallet</span>
-                <h2 className="text-lg font-bold text-amber-400 tracking-wide">
-                  Portfolio & Cycle Management
-                </h2>
-              </div>
-              <button
-                onClick={openSaveDialog}
-                className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
-              >
-                <span className="material-symbols-outlined !text-[17px]">save</span>
-                <span>Save Settings</span>
-              </button>
-            </div>
-
             {/* 3 Columns Configuration Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Column 1: Market & Symbol Universe */}
@@ -939,6 +923,15 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </div>
 
               </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={openSaveDialog}
+                className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
+              >
+                <span className="material-symbols-outlined !text-[17px]">save</span>
+                <span>Save Settings</span>
+              </button>
             </div>
           </div>
         )}
