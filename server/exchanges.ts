@@ -221,7 +221,7 @@ export class ExchangeDataService {
         minNotional: Number(instrument.lotSizeFilter?.minNotionalValue) || 0,
         pricePrecision: decimals(tickSize),
         quantityPrecision: decimals(qtyStep),
-        category: 'LAYER1',
+        category: DEFAULT_PERPETUAL_SYMBOLS.find((s) => s.symbol === instrument.symbol)?.category || 'Other',
         lastPrice: Number(ticker?.lastPrice) || 0,
         change24h: ticker ? Number(ticker.price24hPcnt) * 100 : NaN,
         volume24h: Number(ticker?.turnover24h) || 0,
