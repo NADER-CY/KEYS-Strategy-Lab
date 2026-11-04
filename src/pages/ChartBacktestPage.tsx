@@ -14,6 +14,11 @@ import { calculateKeysIndicator } from '../engine/indicatorCalculations';
 import { parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
 
 interface ChartBacktestPageProps {
+  activeStrategy: string;
+  onStrategyChange: (strategy: string) => void;
+  onSaveConfig?: () => void;
+  onLoadConfig?: () => void;
+  onResetConfig?: () => void;
   portfolioConfig: PortfolioConfig;
   onUpdatePortfolioConfig: (cfg: PortfolioConfig) => void;
   pnlConfig: PnLConfig;
@@ -37,6 +42,11 @@ interface ChartBacktestPageProps {
 }
 
 export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
+  activeStrategy,
+  onStrategyChange,
+  onSaveConfig,
+  onLoadConfig,
+  onResetConfig,
   portfolioConfig,
   onUpdatePortfolioConfig,
   pnlConfig,
@@ -264,6 +274,44 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
   return (
     <div className="space-y-4 pb-8 animate-fadeIn">
+      {/* Strategy controls belong to Chart & Backtest, not the global header. */}
+      <section aria-label="Strategy management" className="flex flex-wrap items-center justify-between gap-3 border-b border-[#243044] pb-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+          <span className="material-symbols-outlined text-[#1463FF]">tune</span>
+          Strategy Controls
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="strategy-profile" className="text-xs font-medium text-slate-400">Strategy:</label>
+          <select
+            id="strategy-profile"
+            value={activeStrategy}
+            onChange={(e) => onStrategyChange(e.target.value)}
+            className="bg-[#171920] border border-[#243044] rounded-lg px-3 py-2 text-sm font-semibold text-slate-200 focus:outline-none focus:border-[#1463FF] max-w-[210px]"
+          >
+            <option value="KEYS v6 Liquidity Trap & SAR">KEYS v6 Liquidity Trap</option>
+            <option value="KEYS v1 Trend & Momentum">KEYS v1 Trend & Momentum</option>
+            <option value="Dynamic VWAP Bands">Dynamic VWAP Bands</option>
+            <option value="Custom Pine Script">Custom Pine Script</option>
+          </select>
+          <button type="button" onClick={onSaveConfig} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
+            <span className="material-symbols-outlined !text-[16px]">save</span>Save
+          </button>
+          <button type="button" onClick={onLoadConfig} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
+            <span className="material-symbols-outlined !text-[16px]">folder_open</span>Load
+          </button>
+          <button type="button" onClick={onResetConfig} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
+            <span className="material-symbols-outlined !text-[16px]">restart_alt</span>Reset
+          </button>
+          <a href="/api/download-zip" download="keys-strategy-lab-complete.zip"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-sm font-semibold">
+            <span className="material-symbols-outlined !text-[16px]">download_for_offline</span>ZIP
+          </a>
+          <span role="status" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#171920] text-sm font-semibold">
+            <span className={`h-2 w-2 rounded-full ${isBacktestRunning ? 'bg-amber-400 animate-pulse' : 'bg-[#0BBA74]'}`} />
+            <span className={isBacktestRunning ? 'text-amber-400' : 'text-[#0BBA74]'}>{isBacktestRunning ? 'RUNNING' : 'READY'}</span>
+          </span>
+        </div>
+      </section>
       {/* ─── QUICK PAGE SWITCHER ────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
