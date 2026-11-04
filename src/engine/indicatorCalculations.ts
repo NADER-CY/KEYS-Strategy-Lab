@@ -190,70 +190,61 @@ export function parabolicSar(
   low: number[],
   start = 0.02,
   inc = 0.02,
-  max = 0.2
+  max = 0.2,
+  close?: number[]
 ): { sar: number[]; isBullish: boolean[] } {
   const n = high.length;
-  const sar: number[] = new Array(n).fill(0);
+  const sar: number[] = new Array(n).fill(NaN);
   const isBullish: boolean[] = new Array(n).fill(true);
 
-  if (n === 0) return { sar, isBullish };
+  if (n < 2) return { sar, isBullish };
 
-  let isUp = true;
+  // Faithful Pine ta.sar reference ordering: initialize on bar 1 using the
+  // prior close, detect reversal BEFORE clamping to the previous lows/highs,
+  // and do not accelerate on the first bar of a new trend.
+  let isUp = (close?.[1] ?? (high[1] + low[1]) / 2) >
+    (close?.[0] ?? (high[0] + low[0]) / 2);
   let af = start;
-  let ep = high[0];
-  let curSar = low[0];
-
-  sar[0] = curSar;
-  isBullish[0] = isUp;
+  let ep = isUp ? high[1] : low[1];
+  let curSar = isUp ? low[0] : high[0];
 
   for (let i = 1; i < n; i++) {
+    let isFirstTrendBar = i === 1;
     let nextSar = curSar + af * (ep - curSar);
 
     if (isUp) {
-      if (i >= 2) {
-        nextSar = Math.min(nextSar, low[i - 1], low[i - 2]);
-      } else {
-        nextSar = Math.min(nextSar, low[i - 1]);
-      }
-
-      if (low[i] < nextSar) {
-        // Trend reversal: Up to Down
+      if (nextSar > low[i]) {
+        isFirstTrendBar = true;
         isUp = false;
-        curSar = ep;
+        nextSar = Math.max(high[i], ep);
         ep = low[i];
         af = start;
-        sar[i] = curSar;
-      } else {
-        if (high[i] > ep) {
-          ep = high[i];
-          af = Math.min(af + inc, max);
-        }
-        curSar = nextSar;
-        sar[i] = curSar;
       }
     } else {
-      if (i >= 2) {
-        nextSar = Math.max(nextSar, high[i - 1], high[i - 2]);
-      } else {
-        nextSar = Math.max(nextSar, high[i - 1]);
-      }
-
-      if (high[i] > nextSar) {
-        // Trend reversal: Down to Up
+      if (nextSar < high[i]) {
+        isFirstTrendBar = true;
         isUp = true;
-        curSar = ep;
+        nextSar = Math.min(low[i], ep);
         ep = high[i];
         af = start;
-        sar[i] = curSar;
-      } else {
-        if (low[i] < ep) {
-          ep = low[i];
-          af = Math.min(af + inc, max);
-        }
-        curSar = nextSar;
-        sar[i] = curSar;
       }
     }
+
+    if (!isFirstTrendBar) {
+      if (isUp && high[i] > ep) {
+        ep = high[i];
+        af = Math.min(af + inc, max);
+      } else if (!isUp && low[i] < ep) {
+        ep = low[i];
+        af = Math.min(af + inc, max);
+      }
+    }
+
+    nextSar = isUp
+      ? Math.min(nextSar, low[i - 1], i > 1 ? low[i - 2] : low[i - 1])
+      : Math.max(nextSar, high[i - 1], i > 1 ? high[i - 2] : high[i - 1]);
+    curSar = nextSar;
+    sar[i] = curSar;
     isBullish[i] = isUp;
   }
 
@@ -342,7 +333,7 @@ export function calculateKeysIndicator(
   const { adx: adxArr } = adx(highs, lows, closes, dilen, adxlen);
 
   // 4. Parabolic SAR
-  const { sar: sarArr, isBullish: sarBullishArr } = parabolicSar(highs, lows, sarStart, sarIncrement, sarMaximum);
+  const { sar: sarArr, isBullish: sarBullishArr } = parabolicSar(highs, lows, sarStart, sarIncrement, sarMaximum, closes);
 
   // 5. Channels and Support/Resistance
   const highChannel = rollingExtreme(highs, length, 'highest');
