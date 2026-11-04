@@ -476,7 +476,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             const roiPct = Number(activeRun.roiPct || 0);
             const winRate = Number(activeRun.winRate || 0);
             const maxDd = Number(activeRun.maxDrawdownPct || 0);
-            const completedCycles = Number(activeRun.completedCycles || 1);
+            const completedCycles = Number(activeRun.completedCycles ?? 0);
             const profitFactor = Number(activeRun.profitFactor || 0);
             const sharpeRatio = Number(activeRun.sharpeRatio || 0);
 
@@ -578,6 +578,16 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                     <span className="text-slate-400">Total Evaluated Trades:</span>
                     <strong className="text-white font-mono">{activeRun.totalTrades || 0}</strong>
                   </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400">Open at Backtest End:</span>
+                    <strong className="text-blue-400 font-mono">{activeRun.openPositionsCount ?? activeRun.trades.filter((trade) => trade.status === 'OPEN').length}</strong>
+                  </div>
+                  {activeRun.unrealizedPnl !== undefined && (
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-slate-400">Unrealized PnL:</span>
+                      <strong className="text-white font-mono">${activeRun.unrealizedPnl.toFixed(2)}</strong>
+                    </div>
+                  )}
                   <div className="flex justify-between py-0.5">
                     <span className="text-slate-400">Sharpe Ratio:</span>
                     <strong className="text-[#0BBA74] font-mono">{Number(activeRun.sharpeRatio || 0).toFixed(2)}</strong>
