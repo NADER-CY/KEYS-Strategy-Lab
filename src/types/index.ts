@@ -92,6 +92,7 @@ export interface PortfolioConfig {
   manualLeverage: number; // default 10
   marginMode: 'cross' | 'isolated'; // default cross
   maxOpenPositions: number; // default 100
+  signalSide?: 'both' | 'buy' | 'sell'; // allowed entry signals; legacy default both
   cycleFromDay: number; // default 1
   cycleToDay: number; // default 7
   backtestTimeframe: number; // minutes, default 5
