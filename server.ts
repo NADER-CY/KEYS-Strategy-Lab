@@ -146,7 +146,7 @@ async function startServer() {
   // 6. Backtest Execution
   app.post('/api/backtest/run', async (req, res) => {
     try {
-      const { portfolioConfig, pnlConfig, indicatorParams, strategyName } = req.body;
+      const { portfolioConfig, pnlConfig, indicatorParams, strategyName, indicatorId } = req.body;
       if (!portfolioConfig || !pnlConfig) {
         return res.status(400).json({ error: 'Missing portfolio or PnL configuration' });
       }
@@ -155,7 +155,8 @@ async function startServer() {
         portfolioConfig,
         pnlConfig,
         indicatorParams || {},
-        strategyName || 'KEYS v6 Strategy'
+        strategyName || 'KEYS v6 Strategy',
+        indicatorId
       );
 
       res.json({ runId, status: 'RUNNING' });
