@@ -181,8 +181,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           if (!isCancelled && Array.isArray(data)) {
             recentCandles = data;
             setCandles(data);
-            const calculated = calculateKeysIndicator(data, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
-            setSignals(calculated);
+            if (activeIndicator.id === 'keys_v6') {
+              setSignals(calculateKeysIndicator(data, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe }));
+            }
             setLastRefreshedAt(new Date());
           }
         }
@@ -297,8 +298,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Always calculate markers from the full currently displayed history,
   // including the older candles outside the live 400-bar refresh window.
   useEffect(() => {
-    if (candles.length > 0) setSignals(calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe }));
-  }, [candles, localParams, chartCandleType, chartTimeframe]);
+    setSignals(activeIndicator.id === 'keys_v6' && candles.length > 0
+      ? calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })
+      : undefined);
+  }, [candles, localParams, chartCandleType, chartTimeframe, activeIndicator.id]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
@@ -326,6 +329,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
   // Re-apply indicator settings to chart
   const handleApplyToChart = () => {
+    if (activeIndicator.id !== 'keys_v6') {
+      setSignals(undefined);
+      return;
+    }
     if (candles.length > 0) {
       const calculated = calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
       setSignals(calculated);
@@ -353,16 +360,17 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   };
 
   // Compile and validate Pine Script in editor
-  const handleCompileScript = () => {
+  const handleCompileScript = async () => {
     const result = validatePineScript(editorCode);
     if (result.valid) {
       const inputs = parsePineScriptInputs(editorCode);
       setCompileStatus({
         valid: true,
-        message: `Validated ${result.version} • ${inputs.length} configurable inputs discovered`
+        message: `Input syntax checked (${result.version}) • ${inputs.length} inputs found. This does not execute arbitrary Pine code.`
       });
 
-      // Update indicator definition
+      // Editing the selected indicator is explicit. Imported scripts can instead
+      // be stored as independent presets via Save as New below.
       const updated: SavedIndicator = {
         ...activeIndicator,
         code: editorCode,
@@ -370,7 +378,12 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         validationStatus: 'Validated',
         params: inputs
       };
-      onSaveIndicator(updated);
+      try {
+        await onSaveIndicator(updated);
+      } catch (error: any) {
+        setCompileStatus({ valid: false, message: error?.message || 'Failed to save script.' });
+        return;
+      }
 
       const newParams: Record<string, any> = {};
       inputs.forEach((p) => {
@@ -378,7 +391,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       });
       setLocalParams(newParams);
 
-      if (candles.length > 0) {
+      if (updated.id === 'keys_v6' && candles.length > 0) {
         const calculated = calculateKeysIndicator(candles, { ...newParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
         setSignals(calculated);
       }
@@ -387,6 +400,33 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         valid: false,
         message: result.error || 'Compilation syntax error'
       });
+    }
+  };
+
+  const handleSaveNewScript = async () => {
+    const result = validatePineScript(editorCode);
+    if (!result.valid) {
+      setCompileStatus({ valid: false, message: result.error || 'Invalid Pine inputs' });
+      return;
+    }
+    const proposedName = window.prompt('Name this Pine indicator:', 'My Pine Indicator')?.trim();
+    if (!proposedName) return;
+    const uniqueName = proposedName;
+    const newIndicator: SavedIndicator = {
+      ...activeIndicator,
+      id: `pine_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      name: uniqueName,
+      code: editorCode,
+      version: result.version as SavedIndicator['version'],
+      params: parsePineScriptInputs(editorCode),
+      validationStatus: 'Validated'
+    };
+    try {
+      await onSaveIndicator(newIndicator);
+      onSelectIndicator(newIndicator);
+      setCompileStatus({ valid: true, message: `Saved '${uniqueName}'. Backtesting requires an executable strategy adapter for this Pine script.` });
+    } catch (error: any) {
+      setCompileStatus({ valid: false, message: error?.message || 'Unable to save indicator.' });
     }
   };
 
@@ -1231,11 +1271,17 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               </div>
               <div className="flex items-center space-x-2.5">
                 <button
+                  onClick={handleSaveNewScript}
+                  className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold"
+                >
+                  Save as New Indicator
+                </button>
+                <button
                   onClick={handleCompileScript}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
                 >
                   <span className="material-symbols-outlined !text-[17px]">check_circle</span>
-                  <span>Compile & Validate Script</span>
+                  <span>Check Inputs & Save</span>
                 </button>
               </div>
             </div>
@@ -1253,7 +1299,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 <span>{compileStatus.message}</span>
               </div>
               <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-black/40 border border-white/10">
-                PINE SCRIPT v6 COMPLIANT
+                INPUT PARSER · NOT A PINE RUNTIME
               </span>
             </div>
 
@@ -1276,12 +1322,18 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       </section>
 
       {/* ─── 3. BOTTOM GREEN ACTION BAR ─────────────────────────────────── */}
+      {activeIndicator.id !== 'keys_v6' && (
+        <div role="status" className="rounded-lg border border-amber-700/40 bg-amber-950/20 px-4 py-2 text-sm text-amber-300">
+          Script saved and selectable. Backtesting is not enabled for this Pine script yet; its buy/sell conditions must be implemented and verified first.
+        </div>
+      )}
       <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => onRunBacktest({ ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })}
-              disabled={isBacktestRunning}
+              disabled={isBacktestRunning || activeIndicator.id !== 'keys_v6'}
+              title={activeIndicator.id !== 'keys_v6' ? 'This saved Pine script needs an executable strategy adapter before backtesting.' : undefined}
               className={`px-8 py-3 rounded-xl text-base font-extrabold flex items-center space-x-2.5 transition shadow-lg ${
                 isBacktestRunning
                   ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
