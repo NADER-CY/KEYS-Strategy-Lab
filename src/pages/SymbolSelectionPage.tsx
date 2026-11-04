@@ -416,43 +416,10 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
       </section>
 
-      {/* ─── FILTERS, SEARCH & DYNAMIC 100-SYMBOL TABS ─────────────────── */}
-      <section className="bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
-        {/* Symbol selection and page-size controls */}
-        <div className="flex items-center gap-4 overflow-x-auto whitespace-nowrap pb-1">
-          <span className="ml-auto shrink-0 text-xs font-semibold text-slate-400">{selectedSymbols.length} selected</span>
-          <span className="shrink-0 text-xs font-semibold text-slate-400">Rows:</span>
-          {([25, 50, 75, 100] as const).map((count) => (
-            <button key={count} type="button" onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
-              className={`px-0 py-1 font-bold text-xs tabular-nums bg-transparent border-0 rounded-none transition-colors hover:text-[#1463FF] ${rowsPerPage === count ? 'text-[#1463FF]' : 'text-slate-400'}`}>
-              {count}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-          {/* Show Selected Only Toggle */}
-          <div className="flex items-center gap-2">
-            <label className="flex items-center space-x-2 cursor-pointer bg-[#171920] px-3 py-1.5 rounded-lg border border-[#19273c]">
-              <input
-                type="checkbox"
-                checked={showSelectedOnly}
-                onChange={(e) => {
-                  setShowSelectedOnly(e.target.checked);
-                  setActiveChunkTab(0);
-                }}
-                className="rounded border-slate-700 text-blue-600 focus:ring-0 w-4 h-4 bg-slate-900 cursor-pointer"
-              />
-              <span className="text-sm font-semibold text-slate-200">
-                Show Selected Only ({selectedSymbols.length})
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* Search & Bulk Quick Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <div className="relative w-80">
+      {/* Compact single-line symbol toolbar */}
+      <section className="bg-transparent border-0 border-b border-[#243044] px-0 py-2">
+        <div className="flex items-center gap-3 whitespace-nowrap overflow-x-auto">
+          <div className="relative w-64 shrink-0">
             <input
               type="text"
               placeholder="Search symbol (BTC, SOL, PEPE, SUI)..."
@@ -461,54 +428,38 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 setSearchQuery(e.target.value);
                 setActiveChunkTab(0);
               }}
-              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs"
-              >
-                ✕
-              </button>
+              <button onClick={() => setSearchQuery('')} aria-label="Clear search"
+                className="absolute right-2 top-1.5 text-slate-400 hover:text-[#1463FF] text-xs">✕</button>
             )}
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <label className="flex shrink-0 items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-300">
+              <input type="checkbox" checked={showSelectedOnly}
+                onChange={(e) => { setShowSelectedOnly(e.target.checked); setActiveChunkTab(0); }}
+                className="w-4 h-4 rounded border-slate-700 text-blue-600 bg-slate-900 cursor-pointer" />
+              Show Selected Only ({selectedSymbols.length})
+            </label>
+            <span className="text-slate-600 mx-1">|</span>
             <span className="text-xs font-semibold text-slate-400">Select:</span>
-            <button
-              onClick={handleSelectAll}
-              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
-            >
+            <button onClick={handleSelectAll}
+              className="px-2.5 py-1.5 rounded-lg bg-[#171920] border border-[#19273c] text-xs font-semibold text-slate-200 hover:text-[#1463FF]">
               Select All ({currentChunkSymbols.length})
             </button>
-            <button
-              onClick={handleSelectNone}
-              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-semibold text-slate-200 transition"
-            >
+            <button onClick={handleSelectNone}
+              className="px-2.5 py-1.5 rounded-lg bg-[#171920] border border-[#19273c] text-xs font-semibold text-slate-200 hover:text-[#1463FF]">
               Clear Tab ({selectedInTab})
             </button>
-
-            <span className="text-slate-700 mx-1">|</span>
-
+            <span className="text-slate-600 mx-1">|</span>
             <span className="text-xs font-semibold text-slate-400">Quick:</span>
-            <button
-              onClick={() => handleSelectTop(50)}
-              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
-            >
-              Top 50
-            </button>
-            <button
-              onClick={() => handleSelectTop(100)}
-              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-bold text-amber-300 transition"
-            >
-              Top 100
-            </button>
-            <button
-              onClick={() => setSelectedSymbols(activeGroup ? [...activeGroup.symbols] : [])}
-              className="px-3 py-1.5 rounded-lg bg-[#171920] hover:bg-[#121c2d] border border-[#19273c] text-sm font-medium text-slate-400 hover:text-white transition"
-            >
-              Reset Group
-            </button>
+            <button onClick={() => handleSelectTop(50)}
+              className="px-2.5 py-1.5 rounded-lg bg-[#171920] border border-[#19273c] text-xs font-bold text-amber-300 hover:text-[#1463FF]">Top 50</button>
+            <button onClick={() => handleSelectTop(100)}
+              className="px-2.5 py-1.5 rounded-lg bg-[#171920] border border-[#19273c] text-xs font-bold text-amber-300 hover:text-[#1463FF]">Top 100</button>
+            <button onClick={() => setSelectedSymbols(activeGroup ? [...activeGroup.symbols] : [])}
+              className="px-2.5 py-1.5 rounded-lg bg-[#171920] border border-[#19273c] text-xs font-medium text-slate-400 hover:text-[#1463FF]">Reset Group</button>
           </div>
         </div>
       </section>
@@ -599,6 +550,19 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             </table>
           </div>
         )}
+        {/* Centered selection total and page-size controls below the table */}
+        <div className="flex flex-wrap items-center justify-center gap-4 border-t border-[#243044] pt-3 text-sm">
+          <span className="text-slate-300 font-semibold tabular-nums">{selectedSymbols.length} selected</span>
+          <span className="text-slate-400">Rows:</span>
+          {([25, 50, 75, 100] as const).map((count) => (
+            <button key={count} type="button"
+              onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
+              aria-pressed={rowsPerPage === count}
+              className={`bg-transparent border-0 px-0 py-1 text-sm font-bold tabular-nums transition-colors hover:text-[#1463FF] ${rowsPerPage === count ? 'text-[#1463FF]' : 'text-slate-400'}`}>
+              {count}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 text-sm">
           <span className="text-slate-300 tabular-nums">
             {sortedChunkSymbols.length === 0 ? 0 : firstRowIndex + 1}–{Math.min(firstRowIndex + rowsPerPage, sortedChunkSymbols.length)} of {sortedChunkSymbols.length} symbols
