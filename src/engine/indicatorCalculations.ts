@@ -89,8 +89,9 @@ export function rma(data: number[], length: number): (number | null)[] {
  * Relative Strength Index (ta.rsi)
  */
 export function rsi(close: number[], period = 14): (number | null)[] {
-  const gains: number[] = [0];
-  const losses: number[] = [0];
+  // Pine ta.rsi uses ta.change(close); the first difference is na, not zero.
+  const gains: number[] = [NaN];
+  const losses: number[] = [NaN];
 
   for (let i = 1; i < close.length; i++) {
     const change = close[i] - close[i - 1];
@@ -107,7 +108,7 @@ export function rsi(close: number[], period = 14): (number | null)[] {
     const al = avgLosses[i];
     if (ag === null || al === null) continue;
     if (al === 0) {
-      result[i] = 100;
+      result[i] = ag === 0 ? 50 : 100;
     } else {
       const rs = ag / al;
       result[i] = 100 - 100 / (1 + rs);
@@ -127,9 +128,11 @@ export function adx(
   adxLen = 14
 ): { adx: (number | null)[]; plusDI: (number | null)[]; minusDI: (number | null)[] } {
   const n = close.length;
+  if (n === 0) return { adx: [], plusDI: [], minusDI: [] };
   const trArr: number[] = [high[0] - low[0]];
-  const plusDM: number[] = [0];
-  const minusDM: number[] = [0];
+  // Pine dirmov uses ta.change(high/low), both undefined on the first bar.
+  const plusDM: number[] = [NaN];
+  const minusDM: number[] = [NaN];
 
   for (let i = 1; i < n; i++) {
     const up = high[i] - high[i - 1];
@@ -165,7 +168,8 @@ export function adx(
       const diff = Math.abs(pdi - mdi);
       dxArr.push(sum === 0 ? 0 : (100 * diff) / sum);
     } else {
-      dxArr.push(0);
+      // Do not seed the ADX moving average with invalid pre-warmup bars.
+      dxArr.push(NaN);
     }
   }
 
