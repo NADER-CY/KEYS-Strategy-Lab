@@ -188,6 +188,12 @@ export interface BacktestRun {
   initialCapital: number;
   finalBalance: number;
   netPnl: number;
+  /** Account cash including realized results, entry fees and funding. */
+  cashBalance?: number;
+  /** Mark-to-market PnL of positions still OPEN at the final candle. */
+  unrealizedPnl?: number;
+  /** Number of positions still OPEN at the end of the historical window. */
+  openPositionsCount?: number;
   roiPct: number;
   winRate: number;
   profitFactor: number;
