@@ -19,21 +19,22 @@ jobs:
     steps:
       - name: Verify SSH deployment configuration
         env:
-          DEPLOY_KEY: ${{ secrets.KEYS_DEPLOY_SSH_KEY }}
+          DEPLOY_KEY: ${{ secrets.KEYS_DEPLOY_SSH_KEY_B64 }}
           HOST_KEY: ${{ secrets.KEYS_SERVER_HOST_KEY }}
         run: |
           if [ -z "$DEPLOY_KEY" ] || [ -z "$HOST_KEY" ]; then
-            echo "::error::Configure KEYS_DEPLOY_SSH_KEY and KEYS_SERVER_HOST_KEY in repository Actions secrets."
+            echo "::error::Configure KEYS_DEPLOY_SSH_KEY_B64 and KEYS_SERVER_HOST_KEY in repository Actions secrets."
             exit 1
           fi
 
       - name: Prepare restricted SSH credentials
         env:
-          DEPLOY_KEY: ${{ secrets.KEYS_DEPLOY_SSH_KEY }}
+          DEPLOY_KEY: ${{ secrets.KEYS_DEPLOY_SSH_KEY_B64 }}
           HOST_KEY: ${{ secrets.KEYS_SERVER_HOST_KEY }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/keys_deploy
+          printf '%s' "$DEPLOY_KEY" | base64 --decode > ~/.ssh/keys_deploy
+          ssh-keygen -y -f ~/.ssh/keys_deploy >/dev/null
           chmod 600 ~/.ssh/keys_deploy
           printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
