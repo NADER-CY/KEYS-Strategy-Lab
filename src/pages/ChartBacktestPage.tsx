@@ -106,6 +106,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // beneath the browser's fallback first option (e.g. OGUSDT).
   const displayedSymbol = chartSymbolList.includes(currentSymbol) ? currentSymbol : chartSymbolList[0];
   const [chartTimeframe, setChartTimeframe] = useState<number>(5);
+  const [chartHistoryDays, setChartHistoryDays] = useState<number>(0);
+  const chartHistoryBars = chartHistoryDays === 0 ? 400 : Math.ceil(chartHistoryDays * 1440 / chartTimeframe);
   const [candles, setCandles] = useState<OHLCV[]>([]);
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
   const [loadingChart, setLoadingChart] = useState<boolean>(false);
@@ -160,7 +162,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       setLoadingChart(true);
       try {
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400`
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -182,7 +184,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [displayedSymbol, chartTimeframe, portfolioConfig.exchange]);
+  }, [displayedSymbol, chartTimeframe, chartHistoryDays, portfolioConfig.exchange]);
 
   // Live real-time polling every 3.5 seconds
   useEffect(() => {
@@ -202,11 +204,19 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           const data = await res.json();
           if (!isCancelled && Array.isArray(data) && data.length > 0) {
             setCandles((previous) => {
-              const a = previous[previous.length - 1];
-              const b = data[data.length - 1];
-              return previous.length === data.length && a?.time === b?.time && a?.close === b?.close && a?.high === b?.high && a?.low === b?.low && a?.volume === b?.volume ? previous : data;
+              // Keep older historical candles and markers when the live feed
+              // only returns a small recent window.
+              const merged = new Map<number, OHLCV>();
+              previous.forEach((bar) => merged.set(bar.time, bar));
+              data.forEach((bar) => merged.set(bar.time, bar));
+              const next = [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
+              const last = previous[previous.length - 1];
+              const incoming = next[next.length - 1];
+              return previous.length === next.length && previous[0]?.time === next[0]?.time &&
+                last?.time === incoming?.time && last?.close === incoming?.close &&
+                last?.high === incoming?.high && last?.low === incoming?.low && last?.volume === incoming?.volume
+                ? previous : next;
             });
-            setSignals(calculateKeysIndicator(data, localParams));
             setFeedHealthy(true);
             setLastRefreshedAt(new Date());
           }
@@ -216,20 +226,26 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       } finally {
         inFlight = false;
       }
-    }, 3500);
+    }, chartHistoryDays >= 180 ? 15000 : 3500);
 
     return () => {
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [isLiveActive, isBacktestRunning, displayedSymbol, chartTimeframe, portfolioConfig.exchange, localParams]);
+  }, [isLiveActive, isBacktestRunning, displayedSymbol, chartTimeframe, chartHistoryDays, portfolioConfig.exchange]);
+
+  // Always calculate markers from the full currently displayed history,
+  // including the older candles outside the live 400-bar refresh window.
+  useEffect(() => {
+    if (candles.length > 0) setSignals(calculateKeysIndicator(candles, localParams));
+  }, [candles, localParams]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
     setLoadingChart(true);
     try {
       const res = await fetch(
-        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400`
+        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -397,6 +413,25 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-400">
+          <span>Chart History:</span>
+          <select
+            value={chartHistoryDays}
+            onChange={(event) => setChartHistoryDays(Number(event.target.value))}
+            className="rounded-lg border border-[#19273c] bg-[#171920] px-2 py-1.5 text-white font-semibold"
+            aria-label="Chart history period"
+          >
+            <option value={0}>Recent (400)</option>
+            <option value={30}>1 Month</option>
+            <option value={90}>3 Months</option>
+            <option value={180}>6 Months</option>
+            <option value={365}>1 Year</option>
+          </select>
+          <span>{candles.length.toLocaleString()} real candles</span>
+          {loadingChart && <span className="text-blue-400">Loading…</span>}
+          <span className="text-[#0BBA74]">BUY {signals?.buySignals.length ?? 0}</span>
+          <span className="text-[#FF4761]">SELL {signals?.sellSignals.length ?? 0}</span>
+        </div>
         <CandlestickChart
           symbol={displayedSymbol}
           onSymbolChange={setCurrentSymbol}
@@ -768,37 +803,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Max DD Cutoff (%)</label>
-                    <input
-                      type="number"
-                      value={portfolioConfig.maxDrawdownCutoff}
-                      onChange={(e) =>
-                        onUpdatePortfolioConfig({
-                          ...portfolioConfig,
-                          maxDrawdownCutoff: parseFloat(e.target.value) || 15
-                        })
-                      }
-                      className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Slippage (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={portfolioConfig.slippageTolerance}
-                      onChange={(e) =>
-                        onUpdatePortfolioConfig({
-                          ...portfolioConfig,
-                          slippageTolerance: parseFloat(e.target.value) || 0.05
-                        })
-                      }
-                      className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-base text-slate-100 font-mono font-bold"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
