@@ -236,7 +236,31 @@ async function runTestSuite() {
     assert(agg15m[0].low === 98, 'Aggregated candle low should be min low');
     assert(agg15m[0].volume === 200, 'Aggregated volume should equal sum of volumes');
 
-    results.push({ num: 5, name: 'Historical Data Aggregation (Boundary Aligned)', passed: true });
+    // TradingView's Bybit 15m reference must use the exchange's native 15m
+    // candles, not OHLCV reconstructed from potentially different 5m caches.
+    const service = exchangeService as any;
+    const originalFetch = service.fetchAndCacheRealBaseCandles;
+    const observedIntervals: number[] = [];
+    service.fetchAndCacheRealBaseCandles = async (
+      _exchange: string, _symbol: string, interval: number
+    ) => {
+      observedIntervals.push(interval);
+      return [
+        { time: 0, open: 1, high: 2, low: 0.5, close: 1.5, volume: 50 },
+        { time: 900, open: 1.5, high: 2.5, low: 1.4, close: 2, volume: 60 }
+      ];
+    };
+    try {
+      const native15m = await exchangeService.getOHLCVCandles('bybit', 'AKEUSDT', 15, 2);
+      assert(observedIntervals[0] === 15, 'Bybit 15m signals must use native 15m klines');
+      assert(native15m.length === 2 && native15m[1].time === 900, 'Native 15m bars must not be re-aggregated');
+      await exchangeService.getOHLCVCandles('bybit', 'AKEUSDT', 10, 2);
+      assert(observedIntervals[1] === 5, 'Custom 10m timeframe should still aggregate 5m candles');
+    } finally {
+      service.fetchAndCacheRealBaseCandles = originalFetch;
+    }
+
+    results.push({ num: 5, name: 'Historical Aggregation & Bybit Native 15m Parity', passed: true });
   } catch (err: any) {
     results.push({ num: 5, name: 'Historical Data Aggregation', passed: false, message: err.message });
   }
