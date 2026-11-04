@@ -12,7 +12,8 @@ import {
 } from '../types';
 import { calculateKeysIndicator, toHeikinAshiCandles } from '../engine/indicatorCalculations';
 import { toRenkoCandles } from '../engine/renkoChart';
-import { ORIGINAL_KEYS_PINE_SCRIPT, parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
+import { ORIGINAL_KEYS_PINE_SCRIPT, isUtBotAlertsScript, parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
+import { calculateUtBotSignals } from '../engine/utBotCalculations';
 
 interface ChartBacktestPageProps {
   activeStrategy: string;
@@ -29,6 +30,7 @@ interface ChartBacktestPageProps {
   activeIndicator: SavedIndicator;
   onSelectIndicator: (indicator: SavedIndicator) => void;
   onSaveIndicator: (indicator: SavedIndicator) => Promise<void> | void;
+  onDeleteIndicator: (id: string) => Promise<void>;
   onRunBacktest: (indicatorParams?: Record<string, any>) => void;
   onStopBacktest: () => void;
   isBacktestRunning: boolean;
@@ -40,6 +42,18 @@ interface ChartBacktestPageProps {
   lastCompletedRun?: BacktestRun | null;
   onNavigateToResults?: () => void;
   onNavigateToPage?: (page: 'chart' | 'results' | 'positions' | 'symbols') => void;
+}
+
+function calculateSelectedSignals(
+  raw: OHLCV[], params: Record<string, any>, candleType: 'regular' | 'heikin_ashi' | 'renko',
+  timeframe: number, code: string
+): IndicatorSignals {
+  if (isUtBotAlertsScript(code)) {
+    const visualBars = candleType === 'regular' ? raw : candleType === 'renko'
+      ? toRenkoCandles(raw, timeframe) : toHeikinAshiCandles(raw);
+    return calculateUtBotSignals(visualBars, params, candleType === 'renko' ? visualBars : raw);
+  }
+  return calculateKeysIndicator(raw, { ...params, candleType, renkoTimeframeMinutes: timeframe });
 }
 
 export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
@@ -57,6 +71,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   activeIndicator,
   onSelectIndicator,
   onSaveIndicator,
+  onDeleteIndicator,
   onRunBacktest,
   onStopBacktest,
   isBacktestRunning,
@@ -180,8 +195,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           if (!isCancelled && Array.isArray(data)) {
             recentCandles = data;
             setCandles(data);
-            if (activeIndicator.id === 'keys_v6') {
-              setSignals(calculateKeysIndicator(data, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe }));
+            if (activeIndicator.id === 'keys_v6' || isUtBotAlertsScript(activeIndicator.code)) {
+              setSignals(calculateSelectedSignals(data, localParams, chartCandleType, chartTimeframe, activeIndicator.code));
             }
             setLastRefreshedAt(new Date());
           }
@@ -297,10 +312,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Always calculate markers from the full currently displayed history,
   // including the older candles outside the live 400-bar refresh window.
   useEffect(() => {
-    setSignals(activeIndicator.id === 'keys_v6' && candles.length > 0
-      ? calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })
+    setSignals((activeIndicator.id === 'keys_v6' || isUtBotAlertsScript(activeIndicator.code)) && candles.length > 0
+      ? calculateSelectedSignals(candles, localParams, chartCandleType, chartTimeframe, activeIndicator.code)
       : undefined);
-  }, [candles, localParams, chartCandleType, chartTimeframe, activeIndicator.id]);
+  }, [candles, localParams, chartCandleType, chartTimeframe, activeIndicator.id, activeIndicator.code]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
@@ -328,12 +343,12 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
   // Re-apply indicator settings to chart
   const handleApplyToChart = () => {
-    if (activeIndicator.id !== 'keys_v6') {
+    if (activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code)) {
       setSignals(undefined);
       return;
     }
     if (candles.length > 0) {
-      const calculated = calculateKeysIndicator(candles, { ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
+      const calculated = calculateSelectedSignals(candles, localParams, chartCandleType, chartTimeframe, activeIndicator.code);
       setSignals(calculated);
     }
   };
@@ -369,7 +384,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       const inputs = parsePineScriptInputs(editorCode);
       setCompileStatus({
         valid: true,
-        message: `Input syntax checked (${result.version}) • ${inputs.length} inputs found. This does not execute arbitrary Pine code.`
+        message: isUtBotAlertsScript(editorCode)
+          ? `UT Bot v4 recognized • ${inputs.length} inputs • BUY/SELL backtest adapter available`
+          : `Input syntax checked (${result.version}) • ${inputs.length} inputs found. Arbitrary Pine code is not executed.`
       });
 
       // Editing the selected indicator is explicit. Imported scripts can instead
@@ -378,7 +395,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         ...activeIndicator,
         code: editorCode,
         version: result.version as any,
-        validationStatus: 'Validated',
+        validationStatus: isUtBotAlertsScript(editorCode) ? 'Backtest Ready' : 'Validated',
         params: inputs
       };
       try {
@@ -394,8 +411,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       });
       setLocalParams(newParams);
 
-      if (updated.id === 'keys_v6' && candles.length > 0) {
-        const calculated = calculateKeysIndicator(candles, { ...newParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe });
+      if ((updated.id === 'keys_v6' || isUtBotAlertsScript(updated.code)) && candles.length > 0) {
+        const calculated = calculateSelectedSignals(candles, newParams, chartCandleType, chartTimeframe, updated.code);
         setSignals(calculated);
       }
     } else {
@@ -422,12 +439,14 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       code: editorCode,
       version: result.version as SavedIndicator['version'],
       params: parsePineScriptInputs(editorCode),
-      validationStatus: 'Validated'
+      validationStatus: isUtBotAlertsScript(editorCode) ? 'Backtest Ready' : 'Saved'
     };
     try {
       await onSaveIndicator(newIndicator);
       onSelectIndicator(newIndicator);
-      setCompileStatus({ valid: true, message: `Saved '${uniqueName}'. Backtesting requires an executable strategy adapter for this Pine script.` });
+      setCompileStatus({ valid: true, message: isUtBotAlertsScript(editorCode)
+        ? `Saved '${uniqueName}' • UT Bot backtest engine available.`
+        : `Saved '${uniqueName}'. Backtesting requires a verified adapter for this Pine script.` });
     } catch (error: any) {
       setCompileStatus({ valid: false, message: error?.message || 'Unable to save indicator.' });
     }
@@ -483,25 +502,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       </section>
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
-        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-400">
-          <div className="flex items-center gap-1 rounded-lg border border-[#19273c] bg-[#171920] p-1">
-            {([
-              ['regular', 'Candles'],
-              ['heikin_ashi', 'Heikin Ashi'],
-              ['renko', 'Renko']
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setChartCandleType(value)}
-                className={`rounded-md px-2.5 py-1 font-semibold transition ${chartCandleType === value ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'}`}
-              >{label}</button>
-            ))}
-          </div>
-          {loadingChart && <span className="text-blue-400">Loading…</span>}
-          <span className="text-[#0BBA74]">BUY {signals?.buySignals.length ?? 0}</span>
-          <span className="text-[#FF4761]">SELL {signals?.sellSignals.length ?? 0}</span>
-        </div>
         <CandlestickChart
           key={chartCandleType}
           symbol={displayedSymbol}
@@ -509,6 +509,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           availableSymbols={chartSymbolList}
           candles={displayCandles}
           signals={signals}
+          candleType={chartCandleType}
+          onCandleTypeChange={setChartCandleType}
+          loading={loadingChart}
           timeframeMinutes={chartTimeframe}
           onTimeframeChange={setChartTimeframe}
           height={520}
@@ -591,6 +594,20 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </option>
               ))}
             </select>
+            {activeIndicator.id !== 'keys_v6' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm(`Delete indicator "${activeIndicator.name}"?`)) return;
+                  try { await onDeleteIndicator(activeIndicator.id); }
+                  catch (error: any) { alert(error?.message || 'Unable to delete indicator'); }
+                }}
+                title="Delete selected indicator"
+                className="rounded-lg border border-rose-500/30 px-2.5 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
 
@@ -1289,7 +1306,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       </section>
 
       {/* ─── 3. BOTTOM GREEN ACTION BAR ─────────────────────────────────── */}
-      {activeIndicator.id !== 'keys_v6' && (
+      {activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code) && (
         <div role="status" className="rounded-lg border border-amber-700/40 bg-amber-950/20 px-4 py-2 text-sm text-amber-300">
           Script saved and selectable. Backtesting is not enabled for this Pine script yet; its buy/sell conditions must be implemented and verified first.
         </div>
@@ -1299,8 +1316,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={() => onRunBacktest({ ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })}
-              disabled={isBacktestRunning || activeIndicator.id !== 'keys_v6'}
-              title={activeIndicator.id !== 'keys_v6' ? 'This saved Pine script needs an executable strategy adapter before backtesting.' : undefined}
+              disabled={isBacktestRunning || (activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code))}
+              title={activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code) ? 'This saved Pine script needs an executable strategy adapter before backtesting.' : undefined}
               className={`px-8 py-3 rounded-xl text-base font-extrabold flex items-center space-x-2.5 transition shadow-lg ${
                 isBacktestRunning
                   ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
