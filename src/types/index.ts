@@ -102,6 +102,7 @@ export interface PortfolioConfig {
   feeTakerPct: number; // % e.g. 0.05
   feeMakerPct: number; // % e.g. 0.02
   fundingRate8hPct: number; // % e.g. 0.01
+  maxFundingCostPct?: number; // cumulative paid funding / entry notional; default 5%
 }
 
 export interface PnLConfig {
@@ -120,7 +121,8 @@ export type ExitReason =
   | 'TAKE_PROFIT'
   | 'STOP_LOSS'
   | 'OPPOSITE_SIGNAL'
-  | 'BACKTEST_END';
+  | 'BACKTEST_END'
+  | 'FUNDING_EXIT';
 
 export interface PositionTrade {
   id: string;
