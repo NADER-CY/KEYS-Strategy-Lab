@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#0d131f]/95 backdrop-blur-md border-b border-[#1a2436] px-2 sm:px-4 py-1.5 transition-all">
+    <header className="sticky top-0 z-50 w-full bg-[#101216]/95 backdrop-blur-md border-b border-[#1a2436] px-2 sm:px-4 py-1.5 transition-all">
       <div className="max-w-[1850px] mx-auto grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5">
         {/* Top/Left Row: Identity & Status */}
         <div className="row-start-2 col-start-1 flex items-center justify-between gap-3 min-w-0">
@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick status pill on compact screens */}
           <div className="flex 2xl:hidden items-center gap-2">
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#070b13] border border-[#1a2436] text-xs font-mono">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#171920] border border-[#1a2436] text-xs font-mono">
               {isRunning ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
             <select
               value={activeStrategy}
               onChange={(e) => onStrategyChange(e.target.value)}
-              className="bg-[#070b13] border border-[#1a2436] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer max-w-[165px] 2xl:max-w-[200px] truncate"
+              className="bg-[#171920] border border-[#1a2436] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer max-w-[165px] 2xl:max-w-[200px] truncate"
             >
               <option value="KEYS v6 Liquidity Trap & SAR">KEYS v6 Liquidity Trap</option>
               <option value="KEYS v1 Trend & Momentum">KEYS v1 Trend & Momentum</option>
@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onSaveConfig}
             title="Save Configuration Profile"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#070b13] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#171920] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
           >
             <span className="material-symbols-outlined !text-[16px]">save</span>
             <span className="hidden md:inline">Save</span>
@@ -128,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onLoadConfig}
             title="Load Configuration Profile"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#070b13] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#171920] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
           >
             <span className="material-symbols-outlined !text-[16px]">folder_open</span>
             <span className="hidden md:inline">Load</span>
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onResetConfig}
             title="Reset Defaults"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#070b13] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1a2436] bg-[#171920] hover:bg-[#121c2d] text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
           >
             <span className="material-symbols-outlined !text-[16px]">restart_alt</span>
             <span className="hidden md:inline">Reset</span>
@@ -153,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">ZIP</span>
           </a>
 
-          <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#070b13] border border-[#1a2436] text-xs font-mono">
+          <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171920] border border-[#1a2436] text-xs font-mono">
             {isRunning ? (
               <>
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
