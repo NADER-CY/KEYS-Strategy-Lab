@@ -795,6 +795,18 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   <p className="text-xs text-slate-400 mt-1">Supports standard minutes: 5, 15, 30, 60, 240, 1440</p>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Historical Test Period</label>
+                  <select value={portfolioConfig.testPeriodDays || 30}
+                    onChange={(e) => onUpdatePortfolioConfig({ ...portfolioConfig, testPeriodDays: Number(e.target.value) })}
+                    className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-base font-bold text-slate-100">
+                    <option value={30}>30 Days</option>
+                    <option value={90}>90 Days</option>
+                    <option value={180}>180 Days</option>
+                    <option value={365}>1 Year (365 Days)</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <label className="block text-slate-300 font-medium mb-1">Max DD Cutoff (%)</label>
