@@ -73,9 +73,10 @@ The indicator engine faithfully implements the original KEYS Pine Script calcula
 ## 4. Financial Simulation & Risk Engine
 
 - **Real Exchange Data**: Fetches linear USDT perpetual futures klines from Bybit, Binance, OKX, Bitget, KuCoin, Gate.io, and MEXC. Low-decimal meme coins (PEPE, SHIB, BONK, FLOKI) are automatically mapped to 1000x contract multipliers.
-- **Causal Execution (N+1 Open)**: Signals detected at bar $N$ close execute strictly at bar $N+1$ open with slippage (default 0.05%) and taker fees (0.055%). Zero future-bar lookahead leakage.
-- **Fixed $10 Notional Position Sizing**: Every position takes $10 USDT notional size ($0.20 initial margin at 50x leverage).
-- **Cross-Margin Portfolio Accounting**: Shared balance and equity across all concurrent positions, with 8-hour periodic funding rates (0.01%).
+- **Causal Execution (N+1 Open)**: Signals detected at bar $N$ close execute strictly at bar $N+1$ open with slippage (default 0.05%) and taker fees (0.055%). Basket exits are market orders at the bar close with the same adverse slippage; the exit fee is charged on the exit order value. The still-forming candle is never used. Zero future-bar lookahead leakage.
+- **Position Sizing & Leverage**: Fixed USDT notional per position (default $10). Max-leverage mode uses each contract's live exchange limit (Bybit instruments API); an unpublished limit is an error, never an assumed value.
+- **Cross-Margin Portfolio Accounting**: Shared balance and equity across all concurrent positions. A new entry requires free margin (balance + unrealised PnL − initial margin in use) ≥ initial margin + entry fee. Bybit runs apply the actual historical funding settlements of the same contract that supplies the candles (e.g. `1000PEPEUSDT`); other exchanges use a fixed 0.01%/8h model that is labelled as an assumption in the run log.
+- **Trade PnL & Metrics**: Realised trade PnL is net of entry fee, exit fee and funding, so win rate and profit factor reconcile with account net PnL. The Sharpe ratio is the annualised mean/std of per-bar equity returns.
 - **5-Stage PnL Trailing Floor Rules**:
   $$\text{Exit Floor} = \text{Peak Net Profit} \times \left(1 - \frac{\text{Profit Drop}}{100}\right)$$
   - Range 1: 50% – 80% (30% drop)
@@ -89,10 +90,17 @@ The indicator engine faithfully implements the original KEYS Pine Script calcula
 
 ## 5. Automated Validation Suite
 
-Run the full automated test suite:
+Run the automated test suites (indicator math, UT Bot Pine parity, backtest accounting, cycle expiry/breakeven, persistence, market-data caching):
 ```bash
 npm test
 ```
+
+Browser end-to-end flow (needs `npm run build` and Playwright; runs on CI for every branch):
+```bash
+npm run build && npm run test:e2e
+```
+
+The section below lists the original 21-point suite; `tests/regression.test.ts` adds 26 regression tests that drive the real `BacktestService` with deterministic fixtures.
 
 ### Validation Suite Results (21 / 21 Passed)
 - `[Point 01] ✓ PASS — KEYS Signal Formulas (Exact Pine Script Conditions)`

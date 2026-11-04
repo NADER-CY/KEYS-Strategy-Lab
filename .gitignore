@@ -24,3 +24,4 @@ historical-data/
 *.zip
 *.tar.gz
 *.log
+e2e-failure.png

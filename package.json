@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/backtest.test.ts"
+    "test": "tsx tests/backtest.test.ts && tsx tests/utbot.test.ts && tsx tests/regression.test.ts",
+    "test:e2e": "tsx tests/e2e/flow.e2e.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

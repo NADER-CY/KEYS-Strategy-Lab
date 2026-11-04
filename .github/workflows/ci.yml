@@ -1,0 +1,43 @@
+name: CI (verify before deploy)
+
+# Runs on feature branches and pull requests only. Production deployment stays
+# exclusively in deploy.yml (push to main).
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies (same command as production deploy)
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Unit, engine and regression tests
+        run: npm test
+      - name: Install Playwright (CI only, not a project dependency)
+        run: |
+          npm install --no-save --legacy-peer-deps --no-audit --no-fund playwright@1
+          npx playwright install --with-deps chromium
+      - name: End-to-end UI flow
+        run: npm run test:e2e
+      - name: Upload E2E failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: e2e-failure.png
+          if-no-files-found: ignore
