@@ -66,7 +66,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   // Filtering & search
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showSelectedOnly, setShowSelectedOnly] = useState<boolean>(false);
+  const [showSelectedOnly, setShowSelectedOnly] = useState<boolean>(true);
   const [activeChunkTab, setActiveChunkTab] = useState<number>(0); // 100-symbol contract tab
   const [rowsPerPage, setRowsPerPage] = useState<25 | 50 | 75 | 100>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -78,6 +78,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   useEffect(() => {
     if (activeGroup) {
       setSelectedSymbols([...activeGroup.symbols]);
+      setShowSelectedOnly(true);
+      setSearchQuery('');
+      setCurrentPage(1);
       if (activeGroup.exchange !== currentExchange) {
         onExchangeChange(activeGroup.exchange);
       }
@@ -203,7 +206,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       await onSaveGroup(newGroup);
       setActiveGroupId(newGroup.id);
       setSelectedSymbols([...newGroup.symbols]);
-      setShowSelectedOnly(false);
+      setShowSelectedOnly(true);
       setSearchQuery('');
       setCurrentPage(1);
     } catch (error: any) {
@@ -237,20 +240,22 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     handleSaveAsNewTab(true);
   };
 
-  const handleDeleteTab = () => {
-    if (!activeGroup) return;
+  const handleDeleteGroup = (group: SavedSymbolGroup) => {
     if (savedGroups.length <= 1) {
       alert('Cannot delete the last remaining symbol group.');
       return;
     }
-    if (confirm(`Are you sure you want to delete symbol group "${activeGroup.name}"?`)) {
-      onDeleteGroup(activeGroup.id);
-      const remaining = savedGroups.filter((g) => g.id !== activeGroup.id);
-      if (remaining.length > 0) {
+    if (confirm(`Are you sure you want to delete symbol group "${group.name}"?`)) {
+      onDeleteGroup(group.id);
+      const remaining = savedGroups.filter((g) => g.id !== group.id);
+      if (activeGroup?.id === group.id && remaining.length > 0) {
         setActiveGroupId(remaining[0].id);
         setSelectedSymbols([...remaining[0].symbols]);
       }
     }
+  };
+  const handleDeleteTab = () => {
+    if (activeGroup) handleDeleteGroup(activeGroup);
   };
 
   // Filtered universe
@@ -471,6 +476,25 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         </div>
 
       </section>
+
+      {/* Saved groups: one compact row above search; selecting a group scopes the table. */}
+      <nav aria-label="Saved symbol groups" className="flex items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[#243044] pb-3">
+        <span className="shrink-0 text-xs font-semibold text-slate-400 mr-1">Saved Groups</span>
+        {savedGroups.map((group) => (
+          <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg border text-sm font-semibold ${activeGroup?.id === group.id ? 'border-[#1463FF] bg-[#1463FF]/15 text-[#D8E2F0]' : 'border-[#19273c] bg-[#171920] text-slate-300'}`}>
+            <button type="button" aria-current={activeGroup?.id === group.id ? 'true' : undefined}
+              onClick={() => setActiveGroupId(group.id)}
+              className="px-3 py-1.5 hover:text-[#1463FF]">
+              {group.name} <span className="text-slate-400 tabular-nums">({group.symbols.length})</span>
+            </button>
+            <button type="button" title={`Delete ${group.name}`} aria-label={`Delete group ${group.name}`}
+              onClick={() => handleDeleteGroup(group)}
+              className="border-l border-[#243044] px-2 py-1.5 text-slate-400 hover:text-[#FF4761]">
+              <span className="material-symbols-outlined !text-[15px] align-middle">close</span>
+            </button>
+          </div>
+        ))}
+      </nav>
 
       {/* Compact single-line symbol toolbar */}
       <section className="bg-transparent border-0 border-b border-[#243044] px-0 py-2">
