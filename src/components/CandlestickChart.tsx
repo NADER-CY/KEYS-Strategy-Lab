@@ -34,6 +34,8 @@ interface CandlestickChartProps {
   loading?: boolean;
 }
 
+type SignalBadge = { key: string; side: 'BUY' | 'SELL'; left: number; top: number; price: string };
+
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   symbol,
   onSymbolChange,
@@ -69,6 +71,49 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [showIndicators, setShowIndicators] = useState<boolean>(showIndicatorsProp);
+  const [signalBadges, setSignalBadges] = useState<SignalBadge[]>([]);
+  const badgeSignalsRef = useRef<IndicatorSignals | undefined>(signals);
+  const badgePrecisionRef = useRef(6);
+  const badgeFrameRef = useRef<number | null>(null);
+
+  const updateSignalBadges = () => {
+    if (badgeFrameRef.current !== null) return;
+    badgeFrameRef.current = requestAnimationFrame(() => {
+      badgeFrameRef.current = null;
+      const chart = chartApiRef.current;
+      const series = candleSeriesRef.current;
+      const canvas = chartContainerRef.current;
+      const visible = chart?.timeScale().getVisibleRange();
+      if (!chart || !series || !canvas || !visible || !badgeSignalsRef.current) {
+        setSignalBadges((previous) => previous.length ? [] : previous);
+        return;
+      }
+      const lowTime = Number(visible.from);
+      const highTime = Number(visible.to);
+      const next: SignalBadge[] = [];
+      const renderSide = (items: IndicatorSignals['buySignals'], side: 'BUY' | 'SELL') => {
+        for (const signal of items) {
+          if (signal.time < lowTime || signal.time > highTime) continue;
+          const candle = candleLookupRef.current.get(signal.time);
+          if (!candle) continue;
+          const x = chart.timeScale().timeToCoordinate(signal.time as Time);
+          const y = series.priceToCoordinate(side === 'BUY' ? candle.low : candle.high);
+          if (x === null || y === null || x < 55 || x > canvas.clientWidth - 85) continue;
+          next.push({
+            key: `${side}-${signal.time}`,
+            side,
+            left: x,
+            top: side === 'BUY' ? y + 18 : y - 18,
+            price: signal.price.toFixed(badgePrecisionRef.current)
+          });
+          if (next.length >= 80) return;
+        }
+      };
+      renderSide(badgeSignalsRef.current.buySignals, 'BUY');
+      if (next.length < 80) renderSide(badgeSignalsRef.current.sellSignals, 'SELL');
+      setSignalBadges(next);
+    });
+  };
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -157,6 +202,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     });
 
     chartApiRef.current = chart;
+    chart.timeScale().subscribeVisibleTimeRangeChange(updateSignalBadges);
 
     // Add Candlestick Series
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -211,6 +257,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     window.addEventListener('resize', handleResize);
     return () => {
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(updateSignalBadges);
+      if (badgeFrameRef.current !== null) cancelAnimationFrame(badgeFrameRef.current);
+      badgeFrameRef.current = null;
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(updateLiveArrow);
       window.removeEventListener('resize', handleResize);
       if (chartApiRef.current) {
@@ -231,6 +280,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       candlesRef.current = [];
       candleLookupRef.current.clear();
       setHoveredCandle(null);
+      setSignalBadges([]);
       return;
     }
 
@@ -242,6 +292,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     const precision = referencePrice > 0
       ? Math.max(2, Math.min(8, Math.ceil(-Math.log10(referencePrice)) + 3))
       : 2;
+    badgePrecisionRef.current = precision;
+    badgeSignalsRef.current = signals;
     candleSeriesRef.current.applyOptions({
       priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
     });
@@ -303,29 +355,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     // BUY and SELL signal markers
     const markers: SeriesMarker<Time>[] = [];
 
-    if (signals) {
-      for (const buy of signals.buySignals) {
-        markers.push({
-          time: buy.time as Time,
-          position: 'belowBar',
-          color: '#0BBA74',
-          shape: 'square',
-          text: `Buy ${buy.price.toFixed(precision)}`,
-          size: 1
-        });
-      }
-
-      for (const sell of signals.sellSignals) {
-        markers.push({
-          time: sell.time as Time,
-          position: 'aboveBar',
-          color: '#FF4761',
-          shape: 'square',
-          text: `Sell ${sell.price.toFixed(precision)}`,
-          size: 1
-        });
-      }
-    }
+    // Signal labels are rendered as readable HTML badges instead of tiny canvas text.
 
     // Selected Trade Entry & Exit markers if inspecting a trade
     if (selectedTrade) {
@@ -353,6 +383,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markerPluginRef.current?.setMarkers(markers);
+    updateSignalBadges();
 
     // Only auto-fit zoom when symbol or timeframe changes, NOT on every 3s live tick update
     if (prevSymbolRef.current !== symbol || prevTfRef.current !== timeframeMinutes) {
@@ -526,6 +557,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       <div className="relative flex-1 w-full flex" style={{ height: isFullscreen ? 'calc(100dvh - 125px)' : `${height}px` }}>
         {/* Lightweight Charts Canvas Container */}
         <div ref={chartContainerRef} className="flex-1 w-full h-full" />
+
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+          {signalBadges.map((badge) => (
+            <div
+              key={badge.key}
+              style={{ left: badge.left, top: badge.top, transform: badge.side === 'SELL' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)' }}
+              className={`absolute whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] font-extrabold leading-5 text-white shadow-lg ring-1 ring-white/20 ${badge.side === 'BUY' ? 'bg-[#0BBA74]' : 'bg-[#FF4761]'}`}
+            >
+              {badge.side === 'BUY' ? 'Buy' : 'Sell'} <span className="font-mono tabular-nums">{badge.price}</span>
+            </div>
+          ))}
+        </div>
 
         {showJumpToLive && (
           <button
