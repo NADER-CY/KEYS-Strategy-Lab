@@ -1,6 +1,7 @@
 /**
  * Full Backtesting Engine for KEYS Strategy Lab
- * Simulates multi-symbol crypto perpetual futures portfolios across time
+ * Simulates multi-symbol crypto perpetual futures portfolios across time.
+ * Simulation only: this module never submits exchange orders.
  */
 import {
   BacktestRun,
@@ -10,19 +11,19 @@ import {
   CycleRecord,
   EquityPoint,
   ExitReason,
-  OHLCV,
-  SymbolMeta
+  OHLCV
 } from '../src/types';
-import { exchangeService } from './exchanges';
+import { exchangeService, FundingEvent } from './exchanges';
 import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
-import { calculateExecutedEntryPrice } from '../src/engine/executionPrice';
+import { calculateExecutedEntryPrice, calculateExecutedExitPrice } from '../src/engine/executionPrice';
 import { ORIGINAL_KEYS_PINE_SCRIPT, isUtBotAlertsScript } from '../src/engine/defaultPineScripts';
 import { calculateUtBotSignals } from '../src/engine/utBotCalculations';
 import { toHeikinAshiCandles } from '../src/engine/indicatorCalculations';
-import { toRenkoCandles } from '../src/engine/renkoChart';
+import { toRenkoCandles, RENKO_BOX_SAMPLE_BARS } from '../src/engine/renkoChart';
 import { hasCycleReachedExpiry } from '../src/engine/cycleTiming';
+import { validatePnLConfig } from '../src/engine/pnlRules';
 
 export interface ActiveJob {
   run: BacktestRun;
@@ -31,6 +32,9 @@ export interface ActiveJob {
   currentDate?: string;
   openPositionsCount: number;
 }
+
+/** Finished jobs stay in memory briefly for status polling, then storage serves them. */
+const FINISHED_JOB_RETENTION_MS = 10 * 60 * 1000;
 
 export class BacktestService {
   private activeJobs: Map<string, ActiveJob> = new Map();
@@ -41,13 +45,31 @@ export class BacktestService {
 
   stopJob(id: string): boolean {
     const job = this.activeJobs.get(id);
-    if (job) {
+    if (job && job.run.status === 'RUNNING') {
       job.stopped = true;
       job.run.status = 'STOPPED';
+      job.run.logs.push(`[${new Date().toISOString()}] Stop requested by user.`);
       storageService.saveBacktestRun(job.run);
       return true;
     }
     return false;
+  }
+
+  private scheduleJobEviction(id: string): void {
+    const timer = setTimeout(() => this.activeJobs.delete(id), FINISHED_JOB_RETENTION_MS);
+    (timer as any).unref?.();
+  }
+
+  /** Unique run id. The old 4-digit random id could overwrite a saved run. */
+  private createRunId(): string {
+    const existing = new Set(storageService.getBacktestRuns().map((r) => r.id));
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const candidate = `BT-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (!existing.has(candidate) && !this.activeJobs.has(candidate)) return candidate;
+    }
+    let candidate = `BT-${Date.now().toString(36).toUpperCase()}`;
+    while (existing.has(candidate) || this.activeJobs.has(candidate)) candidate += 'X';
+    return candidate;
   }
 
   /**
@@ -63,7 +85,16 @@ export class BacktestService {
     // The temporary research backtest mode never forces an exit due to a
     // portfolio drawdown threshold. Slippage remains an explicit recorded cost.
     portfolioConfig = { ...portfolioConfig, maxDrawdownCutoff: 0 };
-    const runId = `BT-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (portfolioConfig.marginMode && portfolioConfig.marginMode !== 'cross') {
+      throw new Error('Only cross-margin futures portfolios are simulated. Select Cross Margin and retry.');
+    }
+    const pnlError = validatePnLConfig(pnlConfig);
+    if (pnlError) throw new Error(`Invalid PnL rules: ${pnlError}`);
+    for (const [key, min] of [['initialCapital', 0], ['positionSizeNotional', 0], ['maxOpenPositions', 0], ['backtestTimeframe', 0]] as const) {
+      if (!Number.isFinite(Number(portfolioConfig[key])) || Number(portfolioConfig[key]) <= min) {
+        throw new Error(`${key} must be a positive number.`);
+      }
+    }
 
     // Resolve symbol group
     const groups = storageService.getGroups();
@@ -80,15 +111,18 @@ export class BacktestService {
     const indicator = storageService.getIndicators().find((i) => i.id === indicatorId);
     const isOriginalKeys = indicatorId === 'keys_v6' && indicator?.code.trim() === ORIGINAL_KEYS_PINE_SCRIPT.trim();
     const isUtBot = !!indicator && isUtBotAlertsScript(indicator.code);
-    if (!isOriginalKeys && !isUtBot) {
+    if (!indicator || (!isOriginalKeys && !isUtBot)) {
       throw new Error('This Pine Script does not have a verified executable backtest adapter. Supported scripts: original KEYS and UT Bot Alerts v4.');
     }
     // Persist and execute the exact same parameter snapshot. Omitted inputs
     // inherit the saved indicator profile, never an unrelated hardcoded value.
-    const effectiveParams = {
+    const effectiveParams: Record<string, any> = {
       ...Object.fromEntries(indicator.params.map((param) => [param.name, param.value])),
       ...indicatorParams
     };
+    // Renko bricks are spread across the BACKTEST candle interval, never the
+    // chart's interval (which the chart passes along with its parameters).
+    effectiveParams.renkoTimeframeMinutes = portfolioConfig.backtestTimeframe;
     if (isOriginalKeys && typeof effectiveParams.useSARFilter !== 'boolean') {
       throw new Error('Enable SAR Filter must be a boolean; refresh the indicator settings and retry.');
     }
@@ -99,7 +133,8 @@ export class BacktestService {
     }
     const testPeriodDays = Number(portfolioConfig.testPeriodDays || 30);
     if (![30, 90, 180, 365].includes(testPeriodDays)) throw new Error('Historical test period must be 30, 90, 180, or 365 days.');
-    const symbols = group.symbols;
+    const symbols = [...new Set(group.symbols)];
+    const runId = this.createRunId();
 
     const newRun: BacktestRun = {
       id: runId,
@@ -152,12 +187,17 @@ export class BacktestService {
     storageService.saveBacktestRun(newRun);
 
     // Run execution in background worker process / async
-    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, effectiveParams, isUtBot).catch((err) => {
-      console.error(`Backtest ${runId} error:`, err);
-      job.run.status = 'FAILED';
-      job.run.error = err.message;
-      storageService.saveBacktestRun(job.run);
-    });
+    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, effectiveParams, isUtBot)
+      .catch((err) => {
+        console.error(`Backtest ${runId} error:`, err);
+        if (job.run.status !== 'STOPPED') {
+          job.run.status = 'FAILED';
+          job.run.error = err.message;
+          job.run.logs.push(`[ERROR] ${err.message}`);
+        }
+        storageService.saveBacktestRun(job.run);
+      })
+      .finally(() => this.scheduleJobEviction(runId));
 
     return runId;
   }
@@ -172,19 +212,26 @@ export class BacktestService {
   ): Promise<void> {
     const run = job.run;
     const startTime = Date.now();
+    const stepSec = portfolioConfig.backtestTimeframe * 60;
 
-    const symbolMetaMap = new Map<string, SymbolMeta>();
-
-    // 1. Validate manual leverage against exchange contract tier limits
+    // 1. Resolve REAL contract leverage limits from the exchange's live
+    // instrument list. Unknown limits are never replaced by an invented 50x.
+    const maxLeverageBySymbol = new Map<string, number>();
     for (const sym of symbols) {
-      const meta = exchangeService.getSymbolMeta(portfolioConfig.exchange, sym);
-      if (meta) {
-        symbolMetaMap.set(sym, meta);
-        if (!portfolioConfig.useMaxLeverage && portfolioConfig.manualLeverage > meta.maxLeverage) {
+      if (job.stopped) return;
+      const meta = await exchangeService.getContractMeta(portfolioConfig.exchange, sym);
+      const exchangeMax = Number(meta?.maxLeverage) || 0;
+      if (exchangeMax > 0) {
+        maxLeverageBySymbol.set(sym, exchangeMax);
+        if (!portfolioConfig.useMaxLeverage && portfolioConfig.manualLeverage > exchangeMax) {
           throw new Error(
-            `Manual leverage ${portfolioConfig.manualLeverage}x exceeds maximum contract leverage of ${meta.maxLeverage}x for ${sym} on ${portfolioConfig.exchange}.`
+            `Manual leverage ${portfolioConfig.manualLeverage}x exceeds maximum contract leverage of ${exchangeMax}x for ${sym} on ${portfolioConfig.exchange}.`
           );
         }
+      } else if (portfolioConfig.useMaxLeverage) {
+        throw new Error(`Maximum leverage for ${sym} is not published by ${portfolioConfig.exchange}; use manual leverage instead.`);
+      } else {
+        run.logs.push(`[LEVERAGE] ${sym}: ${portfolioConfig.exchange} does not publish a max leverage; manual ${portfolioConfig.manualLeverage}x could not be verified.`);
       }
     }
 
@@ -193,7 +240,9 @@ export class BacktestService {
     const candleMap = new Map<string, OHLCV[]>();
     const signalMap = new Map<string, { buyMap: Map<number, { price: number; reason: string }>; sellMap: Map<number, { price: number; reason: string }>; adxMap: Map<number, number>; rsiMap: Map<number, number> }>();
     const requestedBars = Math.ceil((run.testPeriodDays * 1440) / portfolioConfig.backtestTimeframe);
+    const candleType = indicatorParams.candleType || 'heikin_ashi';
 
+    // Up to 4 symbols load concurrently; progress reflects symbols actually loaded.
     let nextSymbolIndex = 0;
     let loadedSymbolCount = 0;
     let processedSymbolCount = 0;
@@ -208,12 +257,16 @@ export class BacktestService {
       job.currentDate = `Loading ${sym} (${loadedSymbolCount}/${symbols.length})`;
 
       try {
-        const candles = await exchangeService.getOHLCVCandles(
+        // One extra bar: the still-forming candle is removed below. Its OHLC
+        // is not final, so it must not produce signals or valuations.
+        const fetched = await exchangeService.getOHLCVCandles(
           portfolioConfig.exchange,
           sym,
           portfolioConfig.backtestTimeframe,
-          requestedBars
+          requestedBars + 1
         );
+        const nowSec = Math.floor(Date.now() / 1000);
+        const candles = fetched.filter((c) => c.time + stepSec <= nowSec).slice(-requestedBars);
         if (candles.length < requestedBars - 2) {
           skippedSymbols.push(sym);
           run.logs.push(`[SKIPPED] ${sym}: only ${candles.length}/${requestedBars} candles available; excluded from the full ${run.testPeriodDays}-day comparison.`);
@@ -222,11 +275,10 @@ export class BacktestService {
           job.currentDate = `Checked ${processedSymbolCount}/${symbols.length} • ${skippedSymbols.length} skipped`;
           continue;
         }
-        run.logs.push(`[DATA] ${sym}: ${candles.length} verified ${portfolioConfig.backtestTimeframe}m candles, ${new Date(candles[0].time * 1000).toISOString()} to ${new Date(candles[candles.length - 1].time * 1000).toISOString()}`);
+        run.logs.push(`[DATA] ${sym}: ${candles.length} closed ${portfolioConfig.backtestTimeframe}m candles, ${new Date(candles[0].time * 1000).toISOString()} to ${new Date(candles[candles.length - 1].time * 1000).toISOString()}`);
         candleMap.set(sym, candles);
 
         // Compute indicator signals
-        const candleType = indicatorParams.candleType || 'heikin_ashi';
         const signalCandles = candleType === 'renko'
           ? toRenkoCandles(candles, portfolioConfig.backtestTimeframe)
           : candleType === 'regular' ? candles : toHeikinAshiCandles(candles);
@@ -238,16 +290,38 @@ export class BacktestService {
         const adxMap = new Map<number, number>();
         const rsiMap = new Map<number, number>();
 
-        const signalBarTime = (time: number) => indicatorParams.candleType === 'renko'
-          ? Math.floor(time / (portfolioConfig.backtestTimeframe * 60)) * (portfolioConfig.backtestTimeframe * 60)
+        // Renko bricks carry sub-bar timestamps; a brick belongs to the real
+        // candle whose close formed it, so the entry is that candle's N+1 open.
+        const signalBarTime = (time: number) => candleType === 'renko'
+          ? Math.floor(time / stepSec) * stepSec
           : time;
-        indicatorResult.buySignals.forEach((s) => buyMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 BUY' }));
-        indicatorResult.sellSignals.forEach((s) => sellMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 SELL' }));
+        // The fixed Renko box is sized from the first bars of the window, so
+        // signals inside that sample would use future information.
+        const firstCausalTime = candleType === 'renko'
+          ? candles[Math.min(RENKO_BOX_SAMPLE_BARS, candles.length - 1)].time
+          : -Infinity;
+        let suppressed = 0;
+        const fallbackLabel = isUtBot ? 'UT Bot' : 'KEYS v6';
+        for (const s of indicatorResult.buySignals) {
+          const t = signalBarTime(s.time);
+          if (t < firstCausalTime) { suppressed++; continue; }
+          buyMap.set(t, { price: s.price, reason: s.reason || `${fallbackLabel} BUY` });
+        }
+        for (const s of indicatorResult.sellSignals) {
+          const t = signalBarTime(s.time);
+          if (t < firstCausalTime) { suppressed++; continue; }
+          sellMap.set(t, { price: s.price, reason: s.reason || `${fallbackLabel} SELL` });
+        }
+        if (suppressed) run.logs.push(`[SIGNALS] ${sym}: ${suppressed} Renko signal(s) inside the ${RENKO_BOX_SAMPLE_BARS}-bar box-sizing window ignored to avoid look-ahead.`);
 
+        // ADX/RSI arrays are indexed by the SIGNAL candles (Renko bricks differ
+        // from exchange candles), so key them by the signal candle's bar time.
         const adxValues: (number | null)[] = 'adxValues' in indicatorResult ? indicatorResult.adxValues as (number | null)[] : [];
         const rsiValues: (number | null)[] = 'rsiValues' in indicatorResult ? indicatorResult.rsiValues as (number | null)[] : [];
-        for (let i = 0; i < candles.length; i++) {
-          const t = candles[i].time;
+        const keysCandles = isUtBot ? signalCandles
+          : candleType === 'renko' ? toRenkoCandles(candles, portfolioConfig.backtestTimeframe) : candles;
+        for (let i = 0; i < keysCandles.length; i++) {
+          const t = signalBarTime(keysCandles[i].time);
           if (Number.isFinite(adxValues[i])) adxMap.set(t, adxValues[i]!);
           if (Number.isFinite(rsiValues[i])) rsiMap.set(t, rsiValues[i]!);
         }
@@ -300,7 +374,6 @@ export class BacktestService {
       }
     });
 
-    const stepSec = portfolioConfig.backtestTimeframe * 60;
     const timeline: number[] = [];
     for (let t = minTime; t <= maxTime; t += stepSec) {
       timeline.push(t);
@@ -319,7 +392,7 @@ export class BacktestService {
 
     run.logs.push(`Simulation timeline initialized with ${timeline.length} bars.`);
 
-    const fundingHistory = new Map<string, { time: number; rate: number }[]>();
+    const fundingHistory = new Map<string, FundingEvent[]>();
     const fundingCursor = new Map<string, number>();
     if (portfolioConfig.exchange === 'bybit') {
       let fundingIndex = 0;
@@ -330,16 +403,18 @@ export class BacktestService {
         const sym = symbols[fundingIndex++];
         if (!sym) return;
         job.currentDate = `Funding history ${loadedFundingCount}/${symbols.length}`;
-        let history: { time: number; rate: number }[];
+        let history: FundingEvent[];
         try {
-          history = await exchangeService.getBybitFundingHistory(sym, minTime, maxTime);
+          // Funding settled at or before the last bar's close can apply.
+          history = await exchangeService.getBybitFundingHistory(sym, minTime, maxTime + stepSec);
         } catch (error: any) {
           fundingError = new Error(`Funding history for ${sym}: ${error.message}`);
           return;
         }
         fundingHistory.set(sym, history);
         fundingCursor.set(sym, 0);
-        run.logs.push(`[FUNDING] ${sym}: ${history.length} actual historical Bybit funding rates loaded; prior candle close approximates settlement mark price.`);
+        const maxAbs = history.reduce((m, e) => Math.max(m, Math.abs(e.rate)), 0);
+        run.logs.push(`[FUNDING] ${sym}: ${history.length} actual historical Bybit funding settlements loaded (max |rate| ${(maxAbs * 100).toFixed(4)}%); prior candle close approximates settlement mark price.`);
         loadedFundingCount++;
         job.progress = 25 + Math.floor((loadedFundingCount / symbols.length) * 15);
         job.currentDate = `Funding loaded ${loadedFundingCount}/${symbols.length}`;
@@ -350,13 +425,22 @@ export class BacktestService {
       if (job.stopped) return;
       if (fundingError) throw fundingError;
     } else {
-      run.logs.push(`[FUNDING] Historical funding API not implemented for ${portfolioConfig.exchange}; fixed ${portfolioConfig.fundingRate8hPct}% every 8h is a model assumption.`);
+      run.logs.push(`[FUNDING] Historical funding API not implemented for ${portfolioConfig.exchange}; fixed ${portfolioConfig.fundingRate8hPct}% every 8h charged to every position is a model assumption, not exchange history.`);
     }
 
     // 4. State variables
     let accountBalance = portfolioConfig.initialCapital;
     let peakPortfolioEquity = accountBalance;
     let maxDrawdownPct = 0;
+    let totalFeesPaid = 0;
+    let totalFundingPaid = 0;
+    let fundingEventsApplied = 0;
+    let equityDepletedLogged = false;
+    // Per-bar equity returns for an actual (annualised) Sharpe ratio.
+    let previousBarEquity = accountBalance;
+    let returnCount = 0;
+    let returnMean = 0;
+    let returnM2 = 0;
 
     let cycleIndex = 1;
     let cycleStartEquity = accountBalance;
@@ -387,6 +471,7 @@ export class BacktestService {
 
     const cycleDurationDays = Math.max(1, portfolioConfig.cycleToDay);
     let lastFundingTime = timeline[0];
+    const feeRate = portfolioConfig.feeTakerPct / 100;
 
     // Helper: find applicable PnL drop rule based on peak profit percentage
     const getActiveDropRule = (peakProfitPct: number) => {
@@ -399,28 +484,36 @@ export class BacktestService {
       return null;
     };
 
-    // Helper: close a trade
-    const closeTrade = (trade: PositionTrade, exitPrice: number, exitTime: number, reason: ExitReason) => {
+    // Last close seen for each symbol (used when a symbol has a missing bar).
+    const lastClose = new Map<string, number>();
+    const lastKnownClose = (sym: string, _time: number) => lastClose.get(sym);
+    let marginSkips = 0;
+
+    const markPnl = (pos: PositionTrade, price: number) =>
+      pos.notional * (pos.side === 'BUY' ? price - pos.entryPrice : pos.entryPrice - price) / pos.entryPrice;
+
+    // Helper: close a trade at an executable (slipped) market price.
+    const closeTrade = (trade: PositionTrade, markPrice: number, exitTime: number, reason: ExitReason) => {
+      const exitPrice = calculateExecutedExitPrice(markPrice, trade.side, portfolioConfig.slippageTolerance);
       trade.exitPrice = exitPrice;
       trade.exitTime = exitTime;
       trade.status = 'CLOSED';
       trade.exitReason = reason;
 
-      const priceDiffPct =
-        trade.side === 'BUY'
-          ? (exitPrice - trade.entryPrice) / trade.entryPrice
-          : (trade.entryPrice - exitPrice) / trade.entryPrice;
+      const grossPnl = markPnl(trade, exitPrice);
+      // Taker fee is charged on the exit order's value (quantity x exit price).
+      const exitFee = trade.notional * (exitPrice / trade.entryPrice) * feeRate;
+      // Entry fee and funding were already debited from the balance when they
+      // occurred; realised trade PnL reports every cost of the round trip.
+      const netPnl = grossPnl - trade.feePaid - exitFee - trade.fundingPaid;
 
-      // PnL in USDT based on total position notional
-      const grossPnl = trade.notional * priceDiffPct;
-      const takerFee = trade.notional * (portfolioConfig.feeTakerPct / 100);
-      const netPnl = grossPnl - takerFee;
-
+      trade.grossPnlUsdt = Number(grossPnl.toFixed(6));
       trade.pnlUsdt = Number(netPnl.toFixed(4));
       trade.pnlPct = Number(((netPnl / trade.margin) * 100).toFixed(2));
-      trade.feePaid += takerFee;
+      trade.feePaid += exitFee;
+      totalFeesPaid += exitFee;
 
-      accountBalance += netPnl;
+      accountBalance += grossPnl - exitFee;
       closedTrades.push(trade);
     };
 
@@ -428,8 +521,8 @@ export class BacktestService {
     const liquidateBasket = (curTime: number, reason: ExitReason, exitFloorPct: number, activeRule?: any) => {
       for (const pos of openPositions) {
         const c = candleIndexMap.get(pos.symbol)?.get(curTime);
-        const exitP = c ? c.close : pos.entryPrice;
-        closeTrade(pos, exitP, curTime, reason);
+        const markPrice = c ? c.close : lastKnownClose(pos.symbol, curTime) ?? pos.entryPrice;
+        closeTrade(pos, markPrice, curTime, reason);
       }
       openPositions = [];
       queuedEntries = [];
@@ -462,14 +555,22 @@ export class BacktestService {
       cycleExpiredWaitingBreakeven = false;
     };
 
+    let lastProcessedTime = timeline[0];
+    let lastYield = Date.now();
+
     // 5. Main Time Loop
     for (let barIdx = 0; barIdx < timeline.length; barIdx++) {
-      // Keep the server responsive to progress polls and Stop requests during
-      // large multi-symbol simulations instead of blocking the event loop.
-      if (barIdx % 32 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
+      // Yield to the event loop regularly: a 1-year multi-symbol simulation
+      // otherwise blocks the whole server (chart API, status polling) and a
+      // Stop request cannot be processed until the run has finished.
+      if (Date.now() - lastYield > 40) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        lastYield = Date.now();
+      }
       if (job.stopped) break;
 
       const curTime = timeline[barIdx];
+      lastProcessedTime = curTime;
       const progress = 40 + Math.min(59, Math.floor((barIdx / Math.max(1, timeline.length)) * 59));
       job.progress = progress;
       job.currentDate = new Date(curTime * 1000).toISOString().replace('T', ' ').slice(0, 16);
@@ -477,6 +578,15 @@ export class BacktestService {
 
       // ─── A. EXECUTE QUEUED ENTRIES FROM CANDLE N CLOSE AT THIS CANDLE N+1 OPEN ───
       if (queuedEntries.length > 0 && !cycleExpiredWaitingBreakeven) {
+        // Cross margin: free margin = wallet balance + unrealised PnL (marked
+        // at this bar's open, known at execution time) - initial margin in use.
+        let unrealizedAtOpen = 0;
+        let usedMargin = 0;
+        for (const pos of openPositions) {
+          const price = candleIndexMap.get(pos.symbol)?.get(curTime)?.open ?? lastKnownClose(pos.symbol, curTime) ?? pos.entryPrice;
+          unrealizedAtOpen += markPnl(pos, price);
+          usedMargin += pos.margin;
+        }
         for (const queued of queuedEntries) {
           if (openPositions.length >= portfolioConfig.maxOpenPositions) break;
           if (fundingExcludedSymbols.has(queued.symbol)) continue;
@@ -485,23 +595,22 @@ export class BacktestService {
           const c = candleIndexMap.get(queued.symbol)?.get(curTime);
           if (!c) continue;
 
-          const meta = symbolMetaMap.get(queued.symbol);
-          let appliedLeverage = portfolioConfig.manualLeverage;
-          if (portfolioConfig.useMaxLeverage) {
-            appliedLeverage = meta ? meta.maxLeverage : 50;
-          } else {
-            appliedLeverage = Math.min(portfolioConfig.manualLeverage, meta?.maxLeverage || 50);
-          }
+          const exchangeMax = maxLeverageBySymbol.get(queued.symbol);
+          const appliedLeverage = portfolioConfig.useMaxLeverage
+            ? exchangeMax!
+            : Math.min(portfolioConfig.manualLeverage, exchangeMax ?? portfolioConfig.manualLeverage);
 
           const notional = portfolioConfig.positionSizeNotional;
           const initialMargin = notional / appliedLeverage;
+          const entryFee = notional * feeRate;
+          const freeMargin = accountBalance + unrealizedAtOpen - usedMargin;
 
-          // Check margin availability
-          if (accountBalance >= initialMargin) {
-            const entryFee = notional * (portfolioConfig.feeTakerPct / 100);
+          if (freeMargin >= initialMargin + entryFee) {
             const executedPrice = calculateExecutedEntryPrice(c.open, queued.side, portfolioConfig.slippageTolerance);
 
             accountBalance -= entryFee; // Deduct taker fee on entry
+            totalFeesPaid += entryFee;
+            usedMargin += initialMargin;
 
             const newTrade: PositionTrade = {
               id: `T-${closedTrades.length + openPositions.length + 1}`,
@@ -514,7 +623,7 @@ export class BacktestService {
               entryPrice: executedPrice,
               notional,
               leverage: appliedLeverage,
-              margin: Number(initialMargin.toFixed(4)),
+              margin: Number(initialMargin.toFixed(6)),
               pnlUsdt: 0,
               pnlPct: 0,
               feePaid: entryFee,
@@ -526,6 +635,8 @@ export class BacktestService {
               entrySignalTime: queued.signalTime,
               entrySignalReason: queued.reason
             };
+            // Slippage makes the fill worse than the open; mark it immediately.
+            unrealizedAtOpen += markPnl(newTrade, c.open);
 
             openPositions.push(newTrade);
             if (cycleStartTime === null) {
@@ -533,12 +644,17 @@ export class BacktestService {
               cycleStartEquity = accountBalance + entryFee;
               run.logs.push(`[${job.currentDate}] Cycle #${cycleIndex} started with first position ${queued.symbol}.`);
             }
+          } else {
+            marginSkips++;
+            if (marginSkips <= 20) {
+              run.logs.push(`[${job.currentDate}] ${queued.symbol} ${queued.side} skipped: free cross margin $${freeMargin.toFixed(4)} < required $${(initialMargin + entryFee).toFixed(4)}.`);
+            }
           }
         }
         queuedEntries = [];
       }
 
-      // ─── B. FUNDING RATE DEDUCTION EVERY 8 HOURS ───
+      // ─── B. FUNDING SETTLEMENTS ───
       if (portfolioConfig.exchange === 'bybit') {
         for (const sym of symbols) {
           const history = fundingHistory.get(sym) || [];
@@ -547,11 +663,14 @@ export class BacktestService {
             const event = history[cursor++];
             for (const pos of openPositions) {
               if (pos.symbol !== sym || pos.entryTime >= event.time) continue;
-              const priorClose = candleIndexMap.get(sym)?.get(curTime - stepSec)?.close || pos.entryPrice;
+              const priorClose = candleIndexMap.get(sym)?.get(curTime - stepSec)?.close || lastKnownClose(sym, curTime) || pos.entryPrice;
               const markedNotional = pos.notional * priorClose / pos.entryPrice;
+              // Positive rate: longs pay shorts. Negative rate: shorts pay longs.
               const signedFee = markedNotional * event.rate * (pos.side === 'BUY' ? 1 : -1);
               accountBalance -= signedFee;
               pos.fundingPaid += signedFee;
+              totalFundingPaid += signedFee;
+              fundingEventsApplied++;
             }
           }
           fundingCursor.set(sym, cursor);
@@ -562,6 +681,8 @@ export class BacktestService {
           const fundingFee = pos.notional * (portfolioConfig.fundingRate8hPct / 100);
           accountBalance -= fundingFee;
           pos.fundingPaid += fundingFee;
+          totalFundingPaid += fundingFee;
+          fundingEventsApplied++;
         }
       }
 
@@ -588,31 +709,31 @@ export class BacktestService {
       }
 
       // ─── C. MARK-TO-MARKET UNREALIZED PNL & TOTAL EQUITY ───
+      for (const sym of symbols) {
+        const c = candleIndexMap.get(sym)?.get(curTime);
+        if (c) lastClose.set(sym, c.close);
+      }
       let currentUnrealizedPnl = 0;
-      let usedMargin = 0;
-
       for (const pos of openPositions) {
         const c = candleIndexMap.get(pos.symbol)?.get(curTime);
-        const curPrice = c ? c.close : pos.entryPrice;
-        const diffPct =
-          pos.side === 'BUY'
-            ? (curPrice - pos.entryPrice) / pos.entryPrice
-            : (pos.entryPrice - curPrice) / pos.entryPrice;
-        const uPnl = pos.notional * diffPct;
-        currentUnrealizedPnl += uPnl;
-        usedMargin += pos.margin;
+        const curPrice = c ? c.close : lastKnownClose(pos.symbol, curTime) ?? pos.entryPrice;
+        currentUnrealizedPnl += markPnl(pos, curPrice);
       }
 
-      const totalEquity = accountBalance + currentUnrealizedPnl;
+      let totalEquity = accountBalance + currentUnrealizedPnl;
 
       // Update portfolio peak equity and drawdown
       if (totalEquity > peakPortfolioEquity) {
         peakPortfolioEquity = totalEquity;
       }
-      const curDrawdownPct =
+      let curDrawdownPct =
         peakPortfolioEquity > 0 ? ((peakPortfolioEquity - totalEquity) / peakPortfolioEquity) * 100 : 0;
       if (curDrawdownPct > maxDrawdownPct) {
         maxDrawdownPct = curDrawdownPct;
+      }
+      if (totalEquity <= 0 && !equityDepletedLogged) {
+        equityDepletedLogged = true;
+        run.logs.push(`[WARNING ${job.currentDate}] Account equity reached $${totalEquity.toFixed(2)}. A real exchange would have liquidated this cross-margin account; the simulation does not model liquidation.`);
       }
 
       // Check account-wide liquidation or Max Drawdown cutoff
@@ -682,7 +803,22 @@ export class BacktestService {
       // Execute basket liquidation if triggered
       if (shouldLiquidateBasket && openPositions.length > 0) {
         liquidateBasket(curTime, basketExitReason, exitFloorPct > -100 ? exitFloorPct : 0, activeRule);
+        // Exit slippage and fees are real costs of this bar.
+        currentUnrealizedPnl = 0;
+        totalEquity = accountBalance;
+        curDrawdownPct = peakPortfolioEquity > 0 ? ((peakPortfolioEquity - totalEquity) / peakPortfolioEquity) * 100 : 0;
+        if (curDrawdownPct > maxDrawdownPct) maxDrawdownPct = curDrawdownPct;
       }
+
+      // Per-bar return statistics (Welford) for the Sharpe ratio.
+      if (barIdx > 0 && previousBarEquity > 0) {
+        const r = totalEquity / previousBarEquity - 1;
+        returnCount++;
+        const delta = r - returnMean;
+        returnMean += delta / returnCount;
+        returnM2 += delta * (r - returnMean);
+      }
+      previousBarEquity = totalEquity;
 
       // Record equity curve point every 6 bars or on last bar
       if (barIdx % 6 === 0 || barIdx === timeline.length - 1) {
@@ -749,13 +885,14 @@ export class BacktestService {
 
     // 6. Mark remaining positions to market. The historical window ending is
     // NOT an order to liquidate a losing cycle awaiting breakeven.
-    const finalTime = timeline[timeline.length - 1];
-    const unrealizedPnl = markOpenPositionsAtEnd(openPositions, (symbol) => candleIndexMap.get(symbol)?.get(finalTime)?.close);
+    const finalTime = lastProcessedTime;
+    const unrealizedPnl = markOpenPositionsAtEnd(openPositions, (symbol) =>
+      candleIndexMap.get(symbol)?.get(finalTime)?.close ?? lastClose.get(symbol));
     if (openPositions.length > 0) {
       run.logs.push(`Backtest window ended with ${openPositions.length} OPEN position(s), unrealized PnL $${unrealizedPnl.toFixed(2)}. No forced exit; cycle #${cycleIndex} remains incomplete.`);
     }
 
-    // 6. Metrics & Reporting
+    // 7. Metrics & Reporting
     const finalEquity = accountBalance + unrealizedPnl;
     const netPnl = Number((finalEquity - portfolioConfig.initialCapital).toFixed(2));
     const roiPct = Number(((netPnl / portfolioConfig.initialCapital) * 100).toFixed(2));
@@ -767,9 +904,15 @@ export class BacktestService {
     const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnlUsdt, 0));
     const profitFactor = grossLoss > 0 ? Number((grossProfit / grossLoss).toFixed(2)) : grossProfit > 0 ? 99 : 1;
 
+    // Annualised Sharpe ratio of per-bar equity returns (risk-free rate 0).
+    const barsPerYear = (365 * 1440) / portfolioConfig.backtestTimeframe;
+    const returnStd = returnCount > 1 ? Math.sqrt(returnM2 / (returnCount - 1)) : 0;
+    const sharpeRatio = returnStd > 0 ? (returnMean / returnStd) * Math.sqrt(barsPerYear) : 0;
+
     const durationSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
 
-    run.status = 'COMPLETED';
+    const wasStopped = job.stopped;
+    run.status = wasStopped ? 'STOPPED' : 'COMPLETED';
     run.finalBalance = Number(finalEquity.toFixed(2));
     run.cashBalance = Number(accountBalance.toFixed(2));
     run.unrealizedPnl = Number(unrealizedPnl.toFixed(2));
@@ -779,18 +922,28 @@ export class BacktestService {
     run.winRate = winRate;
     run.profitFactor = profitFactor;
     run.maxDrawdownPct = Number(maxDrawdownPct.toFixed(1));
-    run.sharpeRatio = Number((roiPct / (Math.max(1, maxDrawdownPct) * 1.5)).toFixed(2));
+    run.sharpeRatio = Number(sharpeRatio.toFixed(2));
     run.totalTrades = closedTrades.length;
     run.winningTrades = winningTrades.length;
     run.losingTrades = losingTrades.length;
     run.completedCycles = completedCycles.length;
     run.durationSec = durationSec;
+    run.totalFeesPaid = Number(totalFeesPaid.toFixed(4));
+    run.totalFundingPaid = Number(totalFundingPaid.toFixed(4));
     run.trades = [...closedTrades, ...openPositions];
     run.cycles = completedCycles;
     run.equityCurve = equityCurve;
 
     run.logs.push(
-      `Backtest finalized in ${durationSec}s. Net PnL: $${netPnl} (${roiPct > 0 ? '+' : ''}${roiPct}%), Win Rate: ${winRate}%, Profit Factor: ${profitFactor}, Max DD: -${maxDrawdownPct.toFixed(1)}%.`
+      `[COSTS] Trading fees $${totalFeesPaid.toFixed(4)}; net funding ${totalFundingPaid >= 0 ? 'paid' : 'received'} $${Math.abs(totalFundingPaid).toFixed(4)} across ${fundingEventsApplied} position-settlements.`
+    );
+    if (marginSkips > 0) run.logs.push(`[MARGIN] ${marginSkips} signal(s) skipped for insufficient free cross margin.`);
+    if (wasStopped) {
+      run.endDate = new Date(lastProcessedTime * 1000).toISOString().slice(0, 10);
+      run.logs.push(`Backtest STOPPED by user at ${new Date(lastProcessedTime * 1000).toISOString()}; metrics cover the partial window only.`);
+    }
+    run.logs.push(
+      `Backtest finalized in ${durationSec}s. Net PnL: $${netPnl} (${roiPct > 0 ? '+' : ''}${roiPct}%), Win Rate: ${winRate}%, Profit Factor: ${profitFactor}, Max DD: -${maxDrawdownPct.toFixed(1)}%, Sharpe (annualised): ${run.sharpeRatio}.`
     );
 
     job.progress = 100;

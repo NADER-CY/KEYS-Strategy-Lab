@@ -7,6 +7,8 @@
 import fs from 'fs';
 import path from 'path';
 import { ExchangeId, ExchangeInfo, SymbolMeta, OHLCV } from '../src/types';
+import { toBybitContractSymbol } from '../src/engine/bybitContracts';
+export { BYBIT_CONTRACT_ALIASES, toBybitContractSymbol } from '../src/engine/bybitContracts';
 
 export const SUPPORTED_EXCHANGES: ExchangeInfo[] = [
   {
@@ -128,21 +130,114 @@ const DEFAULT_PERPETUAL_SYMBOLS: Omit<SymbolMeta, 'exchange'>[] = [
   { symbol: 'BLURUSDT', baseAsset: 'BLUR', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'NFT', lastPrice: 0.2450, change24h: 1.15, volume24h: 65000000 }
 ];
 
+/** Atomic JSON write: a crash mid-write can never leave a truncated file. */
+function writeJsonAtomic(file: string, value: unknown): void {
+  const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(value), 'utf8');
+  fs.renameSync(temporary, file);
+}
+
+export interface FundingEvent { time: number; rate: number }
+
 export class ExchangeDataService {
   private cacheDir: string;
   private liveRefreshAt = new Map<string, number>();
+  /**
+   * Parsed base-candle caches. A year of 5m candles is ~14 MB of JSON; parsing
+   * and re-serialising it on every live poll / history page blocked the event
+   * loop for ~150 ms per request. Bounded by total candle count.
+   */
+  private memoryCandles = new Map<string, OHLCV[]>();
+  private readonly memoryCandleLimit = 900_000;
+  private diskWrittenAt = new Map<string, number>();
+  private pendingDiskWrites = new Map<string, ReturnType<typeof setTimeout>>();
 
-  async getBybitFundingHistory(symbol: string, fromSec: number, toSec: number): Promise<{ time: number; rate: number }[]> {
+  private readCandleCache(cacheFile: string): OHLCV[] {
+    const memory = this.memoryCandles.get(cacheFile);
+    if (memory) {
+      // Refresh LRU position.
+      this.memoryCandles.delete(cacheFile);
+      this.memoryCandles.set(cacheFile, memory);
+      return memory;
+    }
+    let parsed: OHLCV[] = [];
+    try {
+      if (fs.existsSync(cacheFile)) {
+        const raw = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        if (Array.isArray(raw)) parsed = raw;
+      }
+    } catch {
+      parsed = []; // A corrupted cache must not prevent a real exchange fetch.
+    }
+    if (parsed.length) this.rememberCandles(cacheFile, parsed);
+    return parsed;
+  }
+
+  private rememberCandles(cacheFile: string, candles: OHLCV[]): void {
+    this.memoryCandles.delete(cacheFile);
+    this.memoryCandles.set(cacheFile, candles);
+    let total = 0;
+    for (const value of this.memoryCandles.values()) total += value.length;
+    for (const key of this.memoryCandles.keys()) {
+      if (total <= this.memoryCandleLimit || this.memoryCandles.size <= 1) break;
+      if (key === cacheFile) continue;
+      total -= this.memoryCandles.get(key)!.length;
+      this.memoryCandles.delete(key);
+    }
+  }
+
+  /** Update memory immediately; persist to disk at most every 30 s per file. */
+  private writeCandleCache(cacheFile: string, candles: OHLCV[], urgent = true): void {
+    this.rememberCandles(cacheFile, candles);
+    const persist = () => {
+      this.pendingDiskWrites.delete(cacheFile);
+      this.diskWrittenAt.set(cacheFile, Date.now());
+      try {
+        writeJsonAtomic(cacheFile, this.memoryCandles.get(cacheFile) || candles);
+      } catch (err) {
+        console.warn(`Failed to write OHLCV cache ${path.basename(cacheFile)}:`, err);
+      }
+    };
+    if (urgent) {
+      const pending = this.pendingDiskWrites.get(cacheFile);
+      if (pending) clearTimeout(pending);
+      persist();
+      return;
+    }
+    if (this.pendingDiskWrites.has(cacheFile)) return;
+    const wait = Math.max(0, 30_000 - (Date.now() - (this.diskWrittenAt.get(cacheFile) || 0)));
+    const timer = setTimeout(persist, wait);
+    timer.unref?.();
+    this.pendingDiskWrites.set(cacheFile, timer);
+  }
+
+  /**
+   * Actual historical Bybit funding settlements for [fromSec, toSec].
+   * Throws instead of returning a silently truncated history.
+   */
+  async getBybitFundingHistory(symbol: string, fromSec: number, toSec: number): Promise<FundingEvent[]> {
+    const contract = toBybitContractSymbol(symbol);
     const fundingDir = path.join(this.cacheDir, 'funding');
     fs.mkdirSync(fundingDir, { recursive: true });
-    const cacheFile = path.join(fundingDir, `bybit_${symbol}_${fromSec}_${toSec}.json`);
-    if (fs.existsSync(cacheFile)) {
-      try { return JSON.parse(fs.readFileSync(cacheFile, 'utf8')); } catch { /* fetch again */ }
+    const cacheFile = path.join(fundingDir, `bybit_${contract}.json`);
+    let cached: { from: number; to: number; rates: FundingEvent[] } | null = null;
+    try {
+      if (fs.existsSync(cacheFile)) {
+        const parsed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        if (parsed && Array.isArray(parsed.rates)) cached = parsed;
+      }
+    } catch { /* fetch again */ }
+    if (cached && cached.from <= fromSec && cached.to >= toSec) {
+      return cached.rates.filter((r) => r.time >= fromSec && r.time <= toSec);
     }
+
     const found = new Map<number, number>();
     let endMs = toSec * 1000;
-    for (let page = 0; page < 30; page++) {
-      const params = new URLSearchParams({ category: 'linear', symbol, endTime: String(endMs), limit: '200' });
+    let reachedStart = false;
+    // 1h-funding contracts settle 8,760 times a year: 200 pages x 200 rows
+    // covers >4 years. The old 30-page cap silently dropped the oldest months.
+    for (let page = 0; page < 200; page++) {
+      const params = new URLSearchParams({ category: 'linear', symbol: contract, endTime: String(endMs), limit: '200' });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
       let data: any;
@@ -151,23 +246,37 @@ export class ExchangeDataService {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         data = await response.json();
       } finally { clearTimeout(timeout); }
-      if (data.retCode !== 0) throw new Error(`Bybit funding history: ${data.retMsg}`);
+      if (data.retCode !== 0) throw new Error(`Bybit funding history for ${contract}: ${data.retMsg}`);
       const pageRates = data.result?.list || [];
-      if (!pageRates.length) break;
+      if (!pageRates.length) { reachedStart = true; break; }
       let oldest = Infinity;
       for (const item of pageRates) {
         const time = Math.floor(Number(item.fundingRateTimestamp) / 1000);
         const rate = Number(item.fundingRate);
         if (Number.isFinite(time) && Number.isFinite(rate) && time >= fromSec && time <= toSec) found.set(time, rate);
-        oldest = Math.min(oldest, time);
+        if (Number.isFinite(time)) oldest = Math.min(oldest, time);
       }
-      if (oldest <= fromSec || !Number.isFinite(oldest)) break;
+      if (!Number.isFinite(oldest) || oldest <= fromSec || pageRates.length < 200) { reachedStart = true; break; }
       endMs = oldest * 1000 - 1;
     }
+    if (!reachedStart) {
+      throw new Error(`Bybit funding history for ${contract} is incomplete for the requested window; refusing to under-charge funding.`);
+    }
     const rates = [...found.entries()].map(([time, rate]) => ({ time, rate })).sort((a, b) => a.time - b.time);
-    if (!rates.length) throw new Error(`No real Bybit funding history available for ${symbol}`);
-    fs.writeFileSync(cacheFile, JSON.stringify(rates), 'utf8');
+    if (!rates.length) throw new Error(`No real Bybit funding history available for ${contract}`);
+    try { writeJsonAtomic(cacheFile, { from: fromSec, to: toSec, rates }); } catch { /* best effort */ }
     return rates;
+  }
+
+  /**
+   * Contract limits from the exchange's live instrument list. Returns
+   * maxLeverage 0 when the exchange API does not publish a limit.
+   */
+  async getContractMeta(exchangeId: ExchangeId, symbol: string): Promise<SymbolMeta | undefined> {
+    const live = await this.getLiveSymbols(exchangeId);
+    const wanted = symbol.toUpperCase();
+    const alias = exchangeId === 'bybit' ? toBybitContractSymbol(wanted) : wanted;
+    return live.find((s) => s.symbol === wanted) || live.find((s) => s.symbol === alias);
   }
 
   constructor() {
@@ -549,16 +658,15 @@ export class ExchangeDataService {
     const factor = timeframeMinutes / baseInterval;
     const normalizedSymbol = symbol.toUpperCase();
     const cacheFile = path.join(this.cacheDir, `${exchangeId}_${normalizedSymbol}_${baseInterval}m_base.json`);
-    let cached: OHLCV[] = [];
-    try {
-      if (fs.existsSync(cacheFile)) {
-        const parsed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-        if (Array.isArray(parsed)) cached = parsed;
-      }
-    } catch { /* Corrupted cache must not prevent a real exchange fetch. */ }
+    const cached: OHLCV[] = this.readCandleCache(cacheFile);
 
     const buildPage = (base: OHLCV[]) => {
-      const candles = factor === 1 ? base : this.aggregateCandles(base, timeframeMinutes);
+      // Only the base candles needed for this page are aggregated, instead of
+      // re-aggregating a whole year for every 1,000-bar page.
+      const end = lowerBound(base, beforeSeconds);
+      const start = Math.max(0, end - Math.ceil(count * factor) - Math.ceil(factor) * 2);
+      const window = base.slice(start, end);
+      const candles = factor === 1 ? window : this.aggregateCandles(window, timeframeMinutes);
       return candles.filter((c) => c.time < beforeSeconds).slice(-count);
     };
     let page = buildPage(cached);
@@ -578,7 +686,7 @@ export class ExchangeDataService {
     cached.forEach((c) => merged.set(c.time, c));
     additional.forEach((c) => merged.set(c.time, c));
     const all = [...merged.values()].sort((a, b) => a.time - b.time);
-    try { fs.writeFileSync(cacheFile, JSON.stringify(all), 'utf8'); } catch { /* Best effort disk cache. */ }
+    this.writeCandleCache(cacheFile, all, false);
     return buildPage(all);
   }
 
@@ -593,17 +701,7 @@ export class ExchangeDataService {
     live = false
   ): Promise<OHLCV[]> {
     const cacheFile = path.join(this.cacheDir, `${exchangeId}_${symbol}_${intervalMinutes}m_base.json`);
-    let cachedCandles: OHLCV[] = [];
-
-    if (fs.existsSync(cacheFile)) {
-      try {
-        const raw = fs.readFileSync(cacheFile, 'utf8');
-        cachedCandles = JSON.parse(raw);
-        if (!Array.isArray(cachedCandles)) cachedCandles = [];
-      } catch {
-        cachedCandles = [];
-      }
-    }
+    const cachedCandles: OHLCV[] = this.readCandleCache(cacheFile);
 
     const intervalSec = intervalMinutes * 60;
     const nowSec = Math.floor(Date.now() / 1000);
@@ -622,11 +720,10 @@ export class ExchangeDataService {
       if (Date.now() - (this.liveRefreshAt.get(liveKey) || 0) < 2500) return cachedCandles;
       try {
         const recent = await this.fetchSingleExchangeKlines(exchangeId, symbol, intervalMinutes, Date.now(), 10);
-        const merged = new Map<number, OHLCV>();
-        cachedCandles.forEach((c) => merged.set(c.time, c));
-        recent.forEach((c) => merged.set(c.time, c));
-        const updated = [...merged.values()].sort((a, b) => a.time - b.time);
-        fs.writeFileSync(cacheFile, JSON.stringify(updated), 'utf8');
+        const updated = mergeTail(cachedCandles, recent);
+        // Memory is updated immediately; the multi-MB disk cache is persisted
+        // at most every 30 s instead of on every 2.5 s live poll.
+        this.writeCandleCache(cacheFile, updated, false);
         this.liveRefreshAt.set(liveKey, Date.now());
         return updated;
       } catch (err: any) {
@@ -640,38 +737,38 @@ export class ExchangeDataService {
       return cachedCandles;
     }
 
-    // A completed historical cache needs only a recent page on subsequent
-    // backtests. Redownloading the entire year for every symbol is unnecessary.
-    if (!live && hasEnoughHistory && cachedCandles.length >= targetCount) {
-      try {
-        const recent = await this.fetchSingleKlinesPageWithRetry(
-          exchangeId, symbol, intervalMinutes, Date.now()
-        );
-        const merged = new Map<number, OHLCV>();
-        cachedCandles.forEach((c) => merged.set(c.time, c));
-        recent.forEach((c) => merged.set(c.time, c));
-        const updated = [...merged.values()].sort((a, b) => a.time - b.time);
-        fs.writeFileSync(cacheFile, JSON.stringify(updated), 'utf8');
-        return updated;
-      } catch (error: any) {
-        console.warn(`Recent history refresh failed for ${symbol}: ${error.message}`);
-        return cachedCandles;
-      }
-    }
-
-    // Download incrementally
+    // Download only what the cache is missing. Previously every stale-cache
+    // request re-downloaded the FULL history (~106 Bybit pages per symbol for
+    // a 1-year 5m backtest) even when only the last few bars were new.
     try {
-      const fetched = await this.downloadPaginatedKlines(
-        exchangeId,
-        symbol,
-        intervalMinutes,
-        targetCount
-      );
+      const fetchedParts: OHLCV[][] = [];
+      if (cachedCandles.length === 0) {
+        fetchedParts.push(await this.downloadPaginatedKlines(exchangeId, symbol, intervalMinutes, targetCount));
+      } else {
+        const newestCached = cachedCandles[cachedCandles.length - 1].time;
+        const missingRecent = Math.ceil((nowSec - newestCached) / intervalSec) + 2;
+        fetchedParts.push(await this.downloadPaginatedKlines(
+          exchangeId, symbol, intervalMinutes, Math.min(targetCount, missingRecent)
+        ));
+        const oldestCached = cachedCandles[0].time;
+        if (oldestCached > earliestRequiredSec) {
+          const missingOlder = Math.ceil((oldestCached - earliestRequiredSec) / intervalSec) + 2;
+          fetchedParts.push(await this.downloadPaginatedKlines(
+            exchangeId, symbol, intervalMinutes, missingOlder, oldestCached * 1000 - 1
+          ));
+        }
+        // If the recent download could not reach the cache, refetch fully so
+        // a gap is never left in the middle of the history.
+        const recent = fetchedParts[0];
+        if (recent.length && recent[0].time > newestCached + intervalSec) {
+          fetchedParts[0] = await this.downloadPaginatedKlines(exchangeId, symbol, intervalMinutes, targetCount);
+        }
+      }
 
       // Merge cached and fetched candles, deduplicate by timestamp, sort ascending
       const map = new Map<number, OHLCV>();
       cachedCandles.forEach((c) => map.set(c.time, c));
-      fetched.forEach((c) => map.set(c.time, c));
+      fetchedParts.forEach((part) => part.forEach((c) => map.set(c.time, c)));
 
       const merged = Array.from(map.values()).sort((a, b) => a.time - b.time);
 
@@ -683,13 +780,7 @@ export class ExchangeDataService {
         }
       }
 
-      // Persist to disk cache
-      try {
-        fs.writeFileSync(cacheFile, JSON.stringify(validated), 'utf8');
-      } catch (err) {
-        console.warn(`Failed to write OHLCV cache for ${symbol}:`, err);
-      }
-
+      this.writeCandleCache(cacheFile, validated, true);
       return validated;
     } catch (err: any) {
       // If network fails but we have some cached data, return what we have; otherwise throw real error
@@ -787,15 +878,7 @@ export class ExchangeDataService {
     try {
       if (exchangeId === 'bybit') {
         // Bybit V5 Linear Kline
-        const bybitMemeMap: Record<string, string> = {
-          PEPEUSDT: '1000PEPEUSDT',
-          SHIBUSDT: 'SHIB1000USDT',
-          BONKUSDT: '1000BONKUSDT',
-          FLOKIUSDT: '1000FLOKIUSDT',
-          BOMEUSDT: '1000BOMEUSDT',
-          NEIROUSDT: '1000NEIROCTOUSDT'
-        };
-        const bybitSym = bybitMemeMap[symbol] || symbol;
+        const bybitSym = toBybitContractSymbol(symbol);
         const intervalStr = intervalMinutes === 1440 ? 'D' :
           intervalMinutes === 10080 ? 'W' :
           intervalMinutes === 43200 ? 'M' : intervalMinutes.toString();
@@ -993,6 +1076,13 @@ export class ExchangeDataService {
     for (const bucketTime of sortedBucketTimes) {
       const group = bucketMap.get(bucketTime)!;
       group.sort((a, b) => a.time - b.time);
+      // The first bucket of a history window usually starts mid-interval
+      // (e.g. 10:05 for a 10:00 15m bar). Its open/high/low would be wrong,
+      // so a leading partial bucket is dropped rather than shown as real.
+      if (aggregated.length === 0 && bucketTime === sortedBucketTimes[0] &&
+          group[0].time !== bucketTime && sortedBucketTimes.length > 1) {
+        continue;
+      }
 
       const open = group[0].open;
       const close = group[group.length - 1].close;
@@ -1018,6 +1108,32 @@ export class ExchangeDataService {
 
     return aggregated;
   }
+}
+
+/** First index whose time is >= target (array sorted ascending by time). */
+export function lowerBound(candles: OHLCV[], targetTime: number): number {
+  let lo = 0;
+  let hi = candles.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (candles[mid].time < targetTime) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * Replace/append a small sorted tail of recent candles without re-sorting the
+ * full history. Falls back to a full merge if the tail overlaps oddly.
+ */
+export function mergeTail(history: OHLCV[], recent: OHLCV[]): OHLCV[] {
+  if (!recent.length) return history;
+  const sortedRecent = [...recent].sort((a, b) => a.time - b.time);
+  const start = lowerBound(history, sortedRecent[0].time);
+  const tail = history.slice(start);
+  const merged = new Map<number, OHLCV>();
+  tail.forEach((c) => merged.set(c.time, c));
+  sortedRecent.forEach((c) => merged.set(c.time, c));
+  return history.slice(0, start).concat([...merged.values()].sort((a, b) => a.time - b.time));
 }
 
 export const exchangeService = new ExchangeDataService();

@@ -95,6 +95,7 @@ export function rma(data: number[], length: number): (number | null)[] {
   const alpha = 1 / length;
   let sum = 0;
   let count = 0;
+  let last = NaN;
 
   for (let i = 0; i < data.length; i++) {
     if (isNaN(data[i])) continue;
@@ -102,11 +103,13 @@ export function rma(data: number[], length: number): (number | null)[] {
       sum += data[i];
       count++;
       if (count === length) {
-        result[i] = sum / length;
+        last = sum / length;
+        result[i] = last;
       }
     } else {
-      const prev = result[i - 1] ?? (sum / length);
-      result[i] = alpha * data[i] + (1 - alpha) * prev;
+      // Continue from the last valid value (never re-seed from the initial SMA).
+      last = alpha * data[i] + (1 - alpha) * last;
+      result[i] = last;
     }
   }
   return result;
@@ -156,7 +159,9 @@ export function adx(
 ): { adx: (number | null)[]; plusDI: (number | null)[]; minusDI: (number | null)[] } {
   const n = close.length;
   if (n === 0) return { adx: [], plusDI: [], minusDI: [] };
-  const trArr: number[] = [high[0] - low[0]];
+  // Pine's ta.tr (handle_na = false) is na on the first bar, so ta.rma(ta.tr)
+  // seeds from bars 1..len exactly like the +DM/-DM averages.
+  const trArr: number[] = [NaN];
   // Pine dirmov uses ta.change(high/low), both undefined on the first bar.
   const plusDM: number[] = [NaN];
   const minusDM: number[] = [NaN];
@@ -180,19 +185,27 @@ export function adx(
   const plusDIArr: (number | null)[] = new Array(n).fill(null);
   const minusDIArr: (number | null)[] = new Array(n).fill(null);
   const dxArr: number[] = [];
+  let lastPdi = NaN;
+  let lastMdi = NaN;
 
   for (let i = 0; i < n; i++) {
     const tr = truerange[i];
     const pdm = rmaPlusDM[i];
     const mdm = rmaMinusDM[i];
 
-    if (tr !== null && pdm !== null && mdm !== null && tr > 0) {
-      const pdi = (100 * pdm) / tr;
-      const mdi = (100 * mdm) / tr;
-      plusDIArr[i] = pdi;
-      minusDIArr[i] = mdi;
-      const sum = pdi + mdi;
-      const diff = Math.abs(pdi - mdi);
+    if (tr !== null && pdm !== null && mdm !== null) {
+      // Pine: fixnan(100 * rma / truerange) keeps the previous DI when the
+      // true-range average is zero (division by zero yields na).
+      if (tr > 0) {
+        lastPdi = (100 * pdm) / tr;
+        lastMdi = (100 * mdm) / tr;
+      }
+    }
+    if (Number.isFinite(lastPdi) && Number.isFinite(lastMdi) && tr !== null) {
+      plusDIArr[i] = lastPdi;
+      minusDIArr[i] = lastMdi;
+      const sum = lastPdi + lastMdi;
+      const diff = Math.abs(lastPdi - lastMdi);
       dxArr.push(sum === 0 ? 0 : (100 * diff) / sum);
     } else {
       // Do not seed the ADX moving average with invalid pre-warmup bars.
@@ -388,17 +401,11 @@ export function calculateKeysIndicator(
 
   const buySignals: { time: number; price: number; reason?: string }[] = [];
   const sellSignals: { time: number; price: number; reason?: string }[] = [];
+  // ta.highest / ta.lowest / ta.sma(volume, length) are na until `length`
+  // bars exist. This is Pine's only warm-up; no data-size dependent warm-up.
+  const channelReadyIndex = Math.max(0, length - 1);
 
-  // Plots data for Lightweight Charts
-  const midLevelPlot: { time: number; value: number }[] = [];
-  const midLevel2Plot: { time: number; value: number }[] = [];
-  const ypsarPlot: { time: number; value: number }[] = [];
-  const dpsarPlot: { time: number; value: number }[] = [];
-  const highChannelPlot: { time: number; value: number }[] = [];
-  const lowChannelPlot: { time: number; value: number }[] = [];
-  const sarPlot: { time: number; value: number }[] = [];
-
-  for (let i = 0; i < n; i++) {
+  for (let i = channelReadyIndex; i < n; i++) {
     const t = times[i];
     const o = opens[i];
     const h = highs[i];
@@ -406,27 +413,14 @@ export function calculateKeysIndicator(
     const c = closes[i];
     const v = volumes[i];
 
-    // populate plot values for chart display
-    midLevelPlot.push({ time: t, value: midlevel[i] });
-    midLevel2Plot.push({ time: t, value: midlevel2[i] });
-    ypsarPlot.push({ time: t, value: YPSAR[i] });
-    dpsarPlot.push({ time: t, value: DPSAR[i] });
-    highChannelPlot.push({ time: t, value: highChannel[i] });
-    lowChannelPlot.push({ time: t, value: lowChannel[i] });
-    sarPlot.push({ time: t, value: sarArr[i] });
-
-    // Warmup check: sufficient bars for initial moving average calculation
-    const warmup = Math.min(30, Math.max(rsiPeriod, adxlen, Math.floor(n * 0.08)));
-    if (i < warmup) continue;
-
     // RSI condition
     const currentRsi = rsiArr[i];
     const rsiOverbought = currentRsi !== null && currentRsi > rsiOverbought_Level;
     const rsiOversold = currentRsi !== null && currentRsi < rsiOversold_Level;
 
     // Volume Analysis (volume_avg = ta.sma(volume, length), volume_spike = volume > volume_multiplier * volume_avg)
-    const volAvg = volAvgArr[i] ?? v;
-    const volume_spike = v > volume_multiplier * volAvg;
+    const volAvg = volAvgArr[i];
+    const volume_spike = volAvg !== null && v > volume_multiplier * volAvg;
 
     // ADX Calculation (strongTrend = adxValue > Adx_trendThreshold)
     const currentAdx = adxArr[i];
@@ -459,11 +453,15 @@ export function calculateKeysIndicator(
 
     const isBuy = buyCondition && (!useSARFilter || sarBullish);
     const isSell = sellCondition && (!useSARFilter || sarBearish);
+    if (!isBuy && !isSell) continue;
 
+    // Reference price = the real exchange close of the signal candle (Heikin
+    // Ashi closes are synthetic averages). Renko uses the brick close level.
+    const referencePrice = options.candleType === 'renko' ? c : candles[i]?.close ?? c;
     if (isBuy) {
       buySignals.push({
         time: t,
-        price: l * 0.999,
+        price: referencePrice,
         reason: `RSI: ${currentRsi?.toFixed(1)} | ADX: ${currentAdx?.toFixed(1)} | Liquidity Trap + DPSAR Touch`
       });
     }
@@ -471,27 +469,45 @@ export function calculateKeysIndicator(
     if (isSell) {
       sellSignals.push({
         time: t,
-        price: h * 1.001,
+        price: referencePrice,
         reason: `RSI: ${currentRsi?.toFixed(1)} | ADX: ${currentAdx?.toFixed(1)} | Liquidity Trap + YPSAR Touch`
       });
     }
   }
 
-  return {
+  // Overlay series are only needed when the user enables overlays. Building
+  // 7 x N point objects on every live tick cost ~110 ms for a year of 5m bars,
+  // so they are materialised lazily on first access.
+  const series = (values: ArrayLike<number>, warm: number) => {
+    const data: { time: number; value: number }[] = new Array(n);
+    for (let i = 0; i < n; i++) data[i] = { time: times[i], value: i < warm ? NaN : values[i] };
+    return data;
+  };
+  const result = {
     buySignals,
     sellSignals,
-    plots: [
-      { name: 'Mid Level', color: '#2563eb', linewidth: 1, data: midLevelPlot },
-      { name: 'Mid Level 2', color: '#eab308', linewidth: 1, data: midLevel2Plot },
-      { name: 'YPSAR', color: '#10b981', linewidth: 2, data: ypsarPlot },
-      { name: 'DPSAR', color: '#f97316', linewidth: 2, data: dpsarPlot },
-      { name: 'Upper Channel', color: '#a855f7', linewidth: 2, data: highChannelPlot },
-      { name: 'Lower Channel', color: '#ef4444', linewidth: 2, data: lowChannelPlot },
-      { name: 'Parabolic SAR', color: '#2962FF', style: 'cross', linewidth: 2, data: sarPlot }
-    ],
+    plots: [] as IndicatorSignals['plots'],
     sarValues: sarArr,
     sarBullish: sarBullishArr,
     adxValues: adxArr,
     rsiValues: rsiArr
   };
+  let plotsCache: IndicatorSignals['plots'] | null = null;
+  Object.defineProperty(result, 'plots', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      plotsCache ??= [
+        { name: 'Mid Level', color: '#2563eb', linewidth: 1, data: series(midlevel, channelReadyIndex) },
+        { name: 'Mid Level 2', color: '#eab308', linewidth: 1, data: series(midlevel2, channelReadyIndex) },
+        { name: 'YPSAR', color: '#10b981', linewidth: 2, data: series(YPSAR, channelReadyIndex) },
+        { name: 'DPSAR', color: '#f97316', linewidth: 2, data: series(DPSAR, channelReadyIndex) },
+        { name: 'Upper Channel', color: '#a855f7', linewidth: 2, data: series(highChannel, channelReadyIndex) },
+        { name: 'Lower Channel', color: '#ef4444', linewidth: 2, data: series(lowChannel, channelReadyIndex) },
+        { name: 'Parabolic SAR', color: '#2962FF', style: 'cross', linewidth: 2, data: series(sarArr, 0) }
+      ];
+      return plotsCache;
+    }
+  });
+  return result;
 }

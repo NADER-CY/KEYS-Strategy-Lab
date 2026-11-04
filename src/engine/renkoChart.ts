@@ -1,5 +1,8 @@
 import { OHLCV } from '../types';
 
+/** Number of leading candles used to size the fixed Renko box. */
+export const RENKO_BOX_SAMPLE_BARS = 200;
+
 /** Close-based fixed-box Renko, for chart visualization only.
  * The box is fixed for the displayed history using 14-bar ATR; the real
  * exchange candles remain authoritative for orders, P&L and KEYS signals.
@@ -7,7 +10,7 @@ import { OHLCV } from '../types';
 export function toRenkoCandles(candles: OHLCV[], timeframeMinutes: number): OHLCV[] {
   if (!candles.length) return [];
   const intervalSeconds = Math.max(60, Math.floor(timeframeMinutes * 60));
-  const sample = candles.slice(1, Math.min(200, candles.length));
+  const sample = candles.slice(1, Math.min(RENKO_BOX_SAMPLE_BARS, candles.length));
   const ranges = sample.map((c, i) => Math.max(
     c.high - c.low,
     Math.abs(c.high - candles[i].close),

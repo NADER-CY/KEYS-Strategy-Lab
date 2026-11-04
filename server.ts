@@ -10,6 +10,7 @@ import { SUPPORTED_EXCHANGES, exchangeService } from './server/exchanges.ts';
 import { storageService } from './server/storage.ts';
 import { backtestService } from './server/backtestService.ts';
 import { ExchangeId } from './src/types/index.ts';
+import { validatePnLConfig } from './src/engine/pnlRules.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,12 +35,34 @@ async function startServer() {
 
   app.put('/api/lab-settings', (req, res) => {
     const { portfolioConfig, pnlConfig, indicatorId } = req.body || {};
-    if (!portfolioConfig || !pnlConfig || !Array.isArray(pnlConfig.rules) || typeof indicatorId !== 'string') {
+    if (!portfolioConfig || typeof portfolioConfig !== 'object' || !pnlConfig || typeof indicatorId !== 'string') {
       return res.status(400).json({ error: 'Invalid lab settings' });
     }
+    const pnlError = validatePnLConfig(pnlConfig);
+    if (pnlError) return res.status(400).json({ error: pnlError });
     try {
       storageService.saveLabSettings({ portfolioConfig, pnlConfig, indicatorId });
-      res.json({ saved: true });
+      // Confirm persistence by reading the file back, not by assumption.
+      const stored = storageService.getLabSettings();
+      const persisted = JSON.stringify(stored?.pnlConfig) === JSON.stringify(pnlConfig) &&
+        JSON.stringify(stored?.portfolioConfig) === JSON.stringify(portfolioConfig) && stored?.indicatorId === indicatorId;
+      if (!persisted) return res.status(500).json({ error: 'Settings could not be verified after saving.' });
+      res.json({ saved: true, settings: stored });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Selecting an indicator on the chart persists ONLY that choice; unsaved
+  // portfolio / PnL edits must not be written as a side effect.
+  app.put('/api/lab-settings/indicator', (req, res) => {
+    const { indicatorId } = req.body || {};
+    if (typeof indicatorId !== 'string' || !storageService.getIndicators().some((i) => i.id === indicatorId)) {
+      return res.status(400).json({ error: 'Unknown indicator' });
+    }
+    try {
+      storageService.saveSelectedIndicatorId(indicatorId);
+      res.json({ saved: storageService.getLabSettings()?.indicatorId === indicatorId });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -108,13 +131,17 @@ async function startServer() {
       const saved = storageService.saveGroup(group);
       res.json(saved);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(400).json({ error: e.message });
     }
   });
 
   app.delete('/api/groups/:id', (req, res) => {
-    storageService.deleteGroup(req.params.id);
-    res.json({ success: true });
+    try {
+      const deleted = storageService.deleteGroup(req.params.id);
+      res.json({ success: true, deleted });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // 4. OHLCV Market Data Candles
@@ -123,7 +150,11 @@ async function startServer() {
       const exchange = (req.query.exchange as ExchangeId) || 'bybit';
       const symbol = (req.query.symbol as string) || 'BTCUSDT';
       const timeframeMinutes = Number(req.query.timeframe) || 5;
-      const limit = Number(req.query.limit) || 500;
+      if (!Number.isInteger(timeframeMinutes) || timeframeMinutes < 1 || timeframeMinutes > 43200) {
+        return res.status(400).json({ error: 'Invalid timeframe' });
+      }
+      // Chart requests are small windows; older history uses /history-page.
+      const limit = Math.min(5000, Math.max(1, Math.floor(Number(req.query.limit) || 500)));
       const live = req.query.live === '1';
 
       const candles = await exchangeService.getOHLCVCandles(
@@ -147,6 +178,9 @@ async function startServer() {
       const exchange = (req.query.exchange as ExchangeId) || 'bybit';
       const symbol = (req.query.symbol as string) || 'BTCUSDT';
       const timeframe = Number(req.query.timeframe) || 15;
+      if (!Number.isInteger(timeframe) || timeframe < 1 || timeframe > 43200) {
+        return res.status(400).json({ error: 'Invalid timeframe' });
+      }
       const before = Number(req.query.before);
       if (!Number.isFinite(before) || before <= 0) {
         return res.status(400).json({ error: 'Valid before timestamp required.' });
@@ -172,14 +206,18 @@ async function startServer() {
       const saved = storageService.saveIndicator(indicator);
       res.json(saved);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(400).json({ error: e.message });
     }
   });
 
   app.delete('/api/indicators/:id', (req, res) => {
     if (req.params.id === 'keys_v6') return res.status(403).json({ error: 'Built-in KEYS indicator cannot be deleted.' });
-    storageService.deleteIndicator(req.params.id);
-    res.json({ success: true });
+    try {
+      const deleted = storageService.deleteIndicator(req.params.id);
+      res.json({ success: true, deleted });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // 6. Backtest Execution
@@ -200,7 +238,7 @@ async function startServer() {
 
       res.json({ runId, status: 'RUNNING' });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(400).json({ error: e.message });
     }
   });
 
@@ -246,8 +284,15 @@ async function startServer() {
   });
 
   app.delete('/api/backtest/runs/:id', (req, res) => {
-    storageService.deleteBacktestRun(req.params.id);
-    res.json({ success: true });
+    if (backtestService.getActiveJob(req.params.id)?.run.status === 'RUNNING') {
+      return res.status(409).json({ error: 'Stop the running backtest before deleting it.' });
+    }
+    try {
+      const deleted = storageService.deleteBacktestRun(req.params.id);
+      res.json({ success: true, deleted });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Export report

@@ -135,7 +135,10 @@ export interface PositionTrade {
   notional: number; // USDT
   leverage: number;
   margin: number; // USDT
+  /** Realised: net of entry fee, exit fee and funding. Open: mark-to-market. */
   pnlUsdt: number;
+  /** Price PnL before fees and funding (closed trades). */
+  grossPnlUsdt?: number;
   pnlPct: number;
   feePaid: number;
   fundingPaid: number;
@@ -201,7 +204,12 @@ export interface BacktestRun {
   winRate: number;
   profitFactor: number;
   maxDrawdownPct: number;
+  /** Annualised Sharpe ratio of per-bar equity returns (risk-free rate 0). */
   sharpeRatio: number;
+  /** Entry + exit taker fees charged in the simulation (USDT). */
+  totalFeesPaid?: number;
+  /** Net funding paid (positive) or received (negative) in USDT. */
+  totalFundingPaid?: number;
   totalTrades: number;
   winningTrades: number;
   losingTrades: number;

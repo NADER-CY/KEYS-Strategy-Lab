@@ -4,7 +4,27 @@
 import fs from 'fs';
 import path from 'path';
 import { BacktestRun, SavedSymbolGroup, SavedIndicator, PortfolioConfig, PnLConfig } from '../src/types';
-import { SAVED_INDICATORS_DEFAULT } from '../src/engine/defaultPineScripts';
+import { SAVED_INDICATORS_DEFAULT, ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
+
+const EXCHANGES = new Set(['bybit', 'binance', 'okx', 'bitget', 'kucoin', 'gateio', 'mexc']);
+
+/** Write via temp file + rename so a crash can never truncate a store. */
+function writeJsonAtomic(file: string, value: unknown, pretty = true): void {
+  const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(value, null, pretty ? 2 : undefined), 'utf8');
+  fs.renameSync(temporary, file);
+}
+
+/**
+ * Strict read for read-modify-write paths. A corrupted store must stop the
+ * write instead of being replaced by [] (which silently deleted every record).
+ */
+function readJsonArrayStrict<T>(file: string): T[] {
+  if (!fs.existsSync(file)) return [];
+  const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!Array.isArray(parsed)) throw new Error(`${path.basename(file)} is not a JSON array; refusing to overwrite it.`);
+  return parsed;
+}
 
 export class StorageService {
   private dataDir: string;
@@ -25,18 +45,46 @@ export class StorageService {
 
     this.initDefaultData();
     this.resetHistoricBacktestsOnce();
+    this.markInterruptedRunsOnce();
   }
 
-  getLabSettings(): { portfolioConfig: PortfolioConfig; pnlConfig: PnLConfig; indicatorId: string } | null {
+  /**
+   * A server restart kills in-memory backtest jobs. Mark their stored records
+   * FAILED once at startup instead of hiding RUNNING runs after 5 minutes
+   * (which made long one-year backtests disappear while still running).
+   */
+  private markInterruptedRunsOnce(): void {
+    try {
+      const runs = readJsonArrayStrict<BacktestRun>(this.backtestsFile);
+      let changed = false;
+      for (const run of runs) {
+        if (run?.status === 'RUNNING') {
+          run.status = 'FAILED';
+          run.error = 'Interrupted by a server restart before completion.';
+          run.logs = [...(run.logs || []), `[${new Date().toISOString()}] Marked FAILED: server restarted while the backtest was running.`];
+          changed = true;
+        }
+      }
+      if (changed) writeJsonAtomic(this.backtestsFile, runs);
+    } catch (err) {
+      console.warn('KEYS: could not inspect stored backtest runs at startup:', err);
+    }
+  }
+
+  getLabSettings(): { portfolioConfig?: PortfolioConfig; pnlConfig?: PnLConfig; indicatorId?: string } | null {
     if (!fs.existsSync(this.settingsFile)) return null;
     try { return JSON.parse(fs.readFileSync(this.settingsFile, 'utf8')); }
     catch { return null; }
   }
 
   saveLabSettings(settings: { portfolioConfig: PortfolioConfig; pnlConfig: PnLConfig; indicatorId: string }): void {
-    const temporaryFile = `${this.settingsFile}.${process.pid}.tmp`;
-    fs.writeFileSync(temporaryFile, JSON.stringify(settings, null, 2), 'utf8');
-    fs.renameSync(temporaryFile, this.settingsFile);
+    writeJsonAtomic(this.settingsFile, settings);
+  }
+
+  /** Persist only the selected chart indicator; never touches unsaved config. */
+  saveSelectedIndicatorId(indicatorId: string): void {
+    const current = this.getLabSettings() || {};
+    writeJsonAtomic(this.settingsFile, { ...current, indicatorId });
   }
 
   // One-time authorized reset of historical DEMO/real backtest reports.
@@ -265,20 +313,34 @@ export class StorageService {
   }
 
   saveGroup(group: SavedSymbolGroup): SavedSymbolGroup {
-    const groups = this.getGroups();
-    const idx = groups.findIndex((g) => g.id === group.id);
-    if (idx >= 0) {
-      groups[idx] = { ...group, updatedAt: new Date().toISOString() };
-    } else {
-      groups.push({ ...group, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    if (!group || typeof group.id !== 'string' || !group.id.trim()) throw new Error('Group id is required.');
+    if (typeof group.name !== 'string' || !group.name.trim()) throw new Error('Group name is required.');
+    if (!EXCHANGES.has(group.exchange)) throw new Error(`Unsupported exchange: ${group.exchange}`);
+    if (!Array.isArray(group.symbols) || group.symbols.some((s) => typeof s !== 'string' || !/^[A-Z0-9]{2,40}$/.test(s.toUpperCase()))) {
+      throw new Error('Group symbols must be exchange contract symbols such as BTCUSDT.');
     }
-    fs.writeFileSync(this.groupsFile, JSON.stringify(groups, null, 2), 'utf8');
-    return group;
+    const groups = readJsonArrayStrict<SavedSymbolGroup>(this.groupsFile);
+    const now = new Date().toISOString();
+    // Keep the user's explicit membership; only normalise case and duplicates.
+    const symbols = [...new Set(group.symbols.map((s) => s.toUpperCase()))];
+    const idx = groups.findIndex((g) => g.id === group.id);
+    let stored: SavedSymbolGroup;
+    if (idx >= 0) {
+      stored = { ...group, name: group.name.trim(), symbols, createdAt: groups[idx].createdAt || group.createdAt || now, updatedAt: now };
+      groups[idx] = stored;
+    } else {
+      stored = { ...group, name: group.name.trim(), symbols, createdAt: now, updatedAt: now };
+      groups.push(stored);
+    }
+    writeJsonAtomic(this.groupsFile, groups);
+    return stored;
   }
 
   deleteGroup(groupId: string): boolean {
-    const groups = this.getGroups().filter((g) => g.id !== groupId);
-    fs.writeFileSync(this.groupsFile, JSON.stringify(groups, null, 2), 'utf8');
+    const groups = readJsonArrayStrict<SavedSymbolGroup>(this.groupsFile);
+    const remaining = groups.filter((g) => g.id !== groupId);
+    if (remaining.length === groups.length) return false;
+    writeJsonAtomic(this.groupsFile, remaining);
     return true;
   }
 
@@ -287,7 +349,7 @@ export class StorageService {
       const data = fs.readFileSync(this.backtestsFile, 'utf8');
       const runs: BacktestRun[] = JSON.parse(data);
       // Clean up and mark demo runs, filter out incomplete test jobs
-      const cleaned = runs.filter((r) => r && r.id && !r.id.startsWith('TEST-') && (r.status !== 'RUNNING' || Date.now() - new Date(r.createdAt).getTime() < 300000));
+      const cleaned = runs.filter((r) => r && r.id && !r.id.startsWith('TEST-'));
       cleaned.forEach((r) => {
         r.netPnl = Number(r.netPnl || 0);
         r.roiPct = Number(r.roiPct || 0);
@@ -392,20 +454,24 @@ export class StorageService {
   }
 
   saveBacktestRun(run: BacktestRun): BacktestRun {
-    const runs = this.getBacktestRuns();
-    const idx = runs.findIndex((r) => r.id === run.id);
+    // Read the raw store (not the display-normalised view) so demo trades
+    // generated for display are never persisted and nothing is filtered out.
+    const runs = readJsonArrayStrict<BacktestRun>(this.backtestsFile);
+    const idx = runs.findIndex((r) => r?.id === run.id);
     if (idx >= 0) {
       runs[idx] = run;
     } else {
       runs.unshift(run);
     }
-    fs.writeFileSync(this.backtestsFile, JSON.stringify(runs, null, 2), 'utf8');
+    writeJsonAtomic(this.backtestsFile, runs, false);
     return run;
   }
 
   deleteBacktestRun(id: string): boolean {
-    const runs = this.getBacktestRuns().filter((r) => r.id !== id);
-    fs.writeFileSync(this.backtestsFile, JSON.stringify(runs, null, 2), 'utf8');
+    const runs = readJsonArrayStrict<BacktestRun>(this.backtestsFile);
+    const remaining = runs.filter((r) => r?.id !== id);
+    if (remaining.length === runs.length) return false;
+    writeJsonAtomic(this.backtestsFile, remaining, false);
     return true;
   }
 
@@ -423,9 +489,7 @@ export class StorageService {
       if (sarParam && sarParam.default === false && sarParam.value === false) {
         sarParam.default = true;
         sarParam.value = true;
-        const temporaryFile = `${this.indicatorsFile}.${process.pid}.tmp`;
-        fs.writeFileSync(temporaryFile, JSON.stringify(indicators, null, 2), 'utf8');
-        fs.renameSync(temporaryFile, this.indicatorsFile);
+        writeJsonAtomic(this.indicatorsFile, indicators);
       }
       return indicators;
     } catch {
@@ -434,20 +498,36 @@ export class StorageService {
   }
 
   saveIndicator(indicator: SavedIndicator): SavedIndicator {
+    if (!indicator || typeof indicator.id !== 'string' || !indicator.id.trim()) throw new Error('Indicator id is required.');
+    if (typeof indicator.name !== 'string' || !indicator.name.trim()) throw new Error('Indicator name is required.');
+    if (typeof indicator.code !== 'string' || !indicator.code.trim()) throw new Error('Indicator code is required.');
+    if (!Array.isArray(indicator.params)) throw new Error('Indicator parameters must be a list.');
+    // The built-in KEYS script is protected: only its parameter VALUES may change.
+    if (indicator.id === 'keys_v6' && indicator.code.trim() !== ORIGINAL_KEYS_PINE_SCRIPT.trim()) {
+      throw new Error('The built-in KEYS indicator code is protected. Save a modified script as a new indicator.');
+    }
+    if (fs.existsSync(this.indicatorsFile)) readJsonArrayStrict<SavedIndicator>(this.indicatorsFile);
     const indicators = this.getIndicators();
+    if (indicator.id !== 'keys_v6' && indicators.some((i) => i.id !== indicator.id && i.name.trim().toLowerCase() === indicator.name.trim().toLowerCase())) {
+      throw new Error(`An indicator named "${indicator.name.trim()}" already exists.`);
+    }
+    const stored: SavedIndicator = { ...indicator, name: indicator.name.trim(), lastUpdated: new Date().toISOString() };
     const idx = indicators.findIndex((i) => i.id === indicator.id);
     if (idx >= 0) {
-      indicators[idx] = { ...indicator, lastUpdated: new Date().toISOString() };
+      indicators[idx] = stored;
     } else {
-      indicators.push(indicator);
+      indicators.push(stored);
     }
-    fs.writeFileSync(this.indicatorsFile, JSON.stringify(indicators, null, 2), 'utf8');
-    return indicator;
+    writeJsonAtomic(this.indicatorsFile, indicators);
+    return stored;
   }
 
   deleteIndicator(id: string): boolean {
-    const indicators = this.getIndicators().filter((i) => i.id !== id);
-    fs.writeFileSync(this.indicatorsFile, JSON.stringify(indicators, null, 2), 'utf8');
+    if (id === 'keys_v6') throw new Error('Built-in KEYS indicator cannot be deleted.');
+    const indicators = readJsonArrayStrict<SavedIndicator>(this.indicatorsFile);
+    const remaining = indicators.filter((i) => i.id !== id);
+    if (remaining.length === indicators.length) return false;
+    writeJsonAtomic(this.indicatorsFile, remaining);
     return true;
   }
 }
