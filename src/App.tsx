@@ -251,6 +251,10 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ind)
     });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.error || `HTTP ${res.status}`);
+    }
     if (res.ok) {
       const saved = await res.json();
       setIndicators((prev) => {
