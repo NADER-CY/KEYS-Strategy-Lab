@@ -67,7 +67,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   initialSymbol,
   lastCompletedRun,
   onNavigateToResults,
-  onNavigateToPage
 }) => {
   // Active settings tab below the chart
   const [activeTab, setActiveTab] = useState<'strategy' | 'pnl' | 'indicator' | 'pinescript'>('strategy');
@@ -482,42 +481,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           </span>
         </div>
       </section>
-      {/* ─── QUICK PAGE SWITCHER ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-          <span className="text-slate-500">PAGE 1 OF 4:</span>
-          <span className="text-white font-bold flex items-center gap-1">
-            <span className="material-symbols-outlined !text-[16px] text-blue-400">candlestick_chart</span>
-            Chart & Historical Backtest Lab
-          </span>
-        </div>
-        {onNavigateToPage && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onNavigateToPage('results')}
-              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">bar_chart</span>
-              <span>2. Backtest Results ↗</span>
-            </button>
-            <button
-              onClick={() => onNavigateToPage('positions')}
-              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">layers</span>
-              <span>3. Positions & Charts ↗</span>
-            </button>
-            <button
-              onClick={() => onNavigateToPage('symbols')}
-              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">dataset</span>
-              <span>4. Symbol Universe ↗</span>
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-400">
