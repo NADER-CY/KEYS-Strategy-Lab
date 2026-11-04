@@ -172,28 +172,33 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     onApplyUniverseToBacktest(updated.id, autoRun);
   };
 
-  const handleSaveAsNewTab = () => {
+  const handleSaveAsNewTab = (copySelection = false) => {
     const newId = `group_${Date.now()}`;
-    const name = prompt('Enter a name for the new symbol group:', `${tabName} (Custom)`) || `Custom Group (${selectedSymbols.length} Symbols)`;
+    const nameInput = prompt('Enter a name for the new symbol group:', copySelection ? `${tabName} (Copy)` : 'New USDT Group');
+    if (nameInput === null) return;
+    const name = nameInput.trim();
+    if (!name) { alert('Please enter a group name.'); return; }
     const newGroup: SavedSymbolGroup = {
       id: newId,
       name,
       exchange: currentExchange,
-      symbols: [...selectedSymbols],
+      symbols: copySelection ? [...selectedSymbols] : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     onSaveGroup(newGroup);
     setActiveGroupId(newId);
-    alert(`Created new symbol group "${newGroup.name}" with ${selectedSymbols.length} symbols!`);
+    setSelectedSymbols([...newGroup.symbols]);
+    setTabName(newGroup.name);
   };
 
   const handleDuplicateTab = () => {
     if (!activeGroup) return;
-    handleSaveAsNewTab();
+    handleSaveAsNewTab(true);
   };
 
   const handleDeleteTab = () => {
+    if (!activeGroup) return;
     if (savedGroups.length <= 1) {
       alert('Cannot delete the last remaining symbol group.');
       return;
@@ -203,6 +208,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       const remaining = savedGroups.filter((g) => g.id !== activeGroup.id);
       if (remaining.length > 0) {
         setActiveGroupId(remaining[0].id);
+        setSelectedSymbols([...remaining[0].symbols]);
+        setTabName(remaining[0].name);
       }
     }
   };
@@ -296,42 +303,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   return (
     <div className="space-y-4 pb-12 animate-fadeIn">
-      {/* ─── QUICK PAGE SWITCHER ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-          <span className="text-slate-500">PAGE 4 OF 4:</span>
-          <span className="text-white font-bold flex items-center gap-1">
-            <span className="material-symbols-outlined !text-[16px] text-blue-400">dataset</span>
-            Symbol Universe & Contract Selection
-          </span>
-        </div>
-        {onNavigateToPage && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onNavigateToPage('chart')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">candlestick_chart</span>
-              <span>1. Chart Lab ↗</span>
-            </button>
-            <button
-              onClick={() => onNavigateToPage('results')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">bar_chart</span>
-              <span>2. Backtest Results ↗</span>
-            </button>
-            <button
-              onClick={() => onNavigateToPage('positions')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
-            >
-              <span className="material-symbols-outlined !text-[14px]">layers</span>
-              <span>3. Positions & Charts ↗</span>
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* ─── TOP SECTION: EXCHANGE & SYMBOL GROUP SELECTORS ─────────────── */}
       <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -358,7 +329,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               </div>
               <span className="text-slate-700">|</span>
               <div className="text-right">
-                <span className="text-xl font-bold font-mono text-white tabular-nums leading-none block">
+                <span className="text-xl font-bold font-mono text-slate-200 tabular-nums leading-none block">
                   {symbols.length}
                 </span>
                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block mt-0.5">
@@ -451,28 +422,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
           </div>
         </div>
 
-        {/* Saved Symbol Groups Tab Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 border-t border-[#142033]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
-            Groups:
-          </span>
-          {savedGroups.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => setActiveGroupId(g.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition flex items-center space-x-2 ${
-                activeGroupId === g.id
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-[#070b13] border border-[#172338] text-slate-300 hover:text-white hover:bg-slate-800/40'
-              }`}
-            >
-              <span>{g.name}</span>
-              <span className="px-2 py-0.5 rounded bg-black/40 text-xs font-mono font-bold text-amber-300">
-                {g.symbols.length}
-              </span>
-            </button>
-          ))}
-        </div>
       </section>
 
       {/* ─── FILTERS, SEARCH & DYNAMIC 100-SYMBOL TABS ─────────────────── */}
@@ -628,17 +577,17 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         {loadingChanges && currentExchange === 'bybit' && <div className="text-xs text-slate-400">Loading historical returns from Bybit...</div>}
         {loading ? <div className="p-8 text-center text-slate-300">Loading contracts...</div> : (
           <div className="w-full min-w-0 max-w-full overflow-x-hidden bg-transparent border-0">
-            <table className="w-full min-w-0 table-fixed border-collapse text-left tabular-nums text-[clamp(10px,0.83vw,13px)]">
+            <table className="w-full min-w-0 table-fixed border-collapse text-left tabular-nums text-[clamp(11px,0.88vw,14px)]">
               <colgroup>
                 {/* Keep Symbol and Last Price visually close; allocate room to Category. Total 100%. */}
                 <col style={{width:'3%'}} />
-                <col style={{width:'12%'}} />
-                <col style={{width:'9%'}} />
+                <col style={{width:'10%'}} />
+                <col style={{width:'7%'}} />
                 {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'6%'}} />)}
                 <col style={{width:'8%'}} />
-                <col style={{width:'8%'}} />
+                <col style={{width:'12%'}} />
               </colgroup>
-              <thead className="sticky top-0 z-10 bg-[#070b13] text-slate-300 border-b border-white/10">
+              <thead className="sticky top-0 z-10 bg-[#101216] text-slate-400 border-b border-white/[0.06]">
                 <tr>
                   <th className="px-1 py-2.5 text-center">
                     <input type="checkbox" aria-label="Select all visible rows"
@@ -669,7 +618,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                       </td>
                       <td className="pl-1.5 pr-0 py-1.5">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span title={symbol.symbol} className="truncate font-bold text-white text-[clamp(12px,0.95vw,15px)]">{symbol.symbol}</span>
+                          <span title={symbol.symbol} className="truncate font-bold text-slate-200 text-[clamp(12px,0.95vw,15px)]">{symbol.symbol}</span>
                           <a href={marketLink(currentExchange, symbol.symbol)} target="_blank" rel="noopener noreferrer"
                              title={`Open ${symbol.symbol} futures on ${currentExchange}`} aria-label={`Open ${symbol.symbol} futures on ${currentExchange}`}
                              onClick={(event) => event.stopPropagation()}
@@ -687,7 +636,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                           {Number.isFinite(symbol.maxLeverage) && symbol.maxLeverage > 0 ? `${symbol.maxLeverage}×` : 'Leverage —'}
                         </div>
                       </td>
-                      <td className="pl-0 pr-2 py-2.5 text-right font-semibold text-white truncate" title={String(symbol.lastPrice)}>
+                      <td className="pl-0 pr-1 py-2.5 text-right font-bold text-slate-200 text-[clamp(13px,1vw,17px)] truncate" title={String(symbol.lastPrice)}>
                         {Number.isFinite(symbol.lastPrice) && symbol.lastPrice > 0 ? symbol.lastPrice.toLocaleString('en-US', { maximumFractionDigits: 8 }) : '—'}
                       </td>
                       {historicalPeriods.map((period) => {
