@@ -142,6 +142,123 @@ export class ExchangeDataService {
     return SUPPORTED_EXCHANGES.find((e) => e.id === exchangeId) || SUPPORTED_EXCHANGES[0];
   }
 
+
+  // Live USDT-settled perpetual contracts from Bybit V5; never use sample data for Bybit.
+  private bybitUniverseCache: { until: number; symbols: SymbolMeta[] } | null = null;
+  private bybitUniversePending: Promise<SymbolMeta[]> | null = null;
+  private bybitReturnCache = new Map<string, { until: number; values: Record<string, number | null> }>();
+
+  private async bybitPublic(endpoint: string, params: URLSearchParams): Promise<any> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 14000);
+    try {
+      const response = await fetch(`https://api.bybit.com/v5/market/${endpoint}?${params.toString()}`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Bybit HTTP ${response.status}`);
+      const payload: any = await response.json();
+      if (payload.retCode !== 0) throw new Error(`Bybit: ${payload.retMsg || payload.retCode}`);
+      return payload.result;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async getBybitSymbols(): Promise<SymbolMeta[]> {
+    if (this.bybitUniverseCache && this.bybitUniverseCache.until > Date.now()) {
+      return this.bybitUniverseCache.symbols;
+    }
+    if (this.bybitUniversePending) return this.bybitUniversePending;
+    this.bybitUniversePending = this.loadBybitSymbols();
+    try {
+      const symbols = await this.bybitUniversePending;
+      this.bybitUniverseCache = { until: Date.now() + 300000, symbols };
+      return symbols;
+    } catch (error) {
+      if (this.bybitUniverseCache) return this.bybitUniverseCache.symbols;
+      throw error;
+    } finally {
+      this.bybitUniversePending = null;
+    }
+  }
+
+  private async loadBybitSymbols(): Promise<SymbolMeta[]> {
+    const instruments: any[] = [];
+    let cursor = '';
+    for (let page = 0; page < 15; page++) {
+      const params = new URLSearchParams({ category: 'linear', status: 'Trading', limit: '1000' });
+      if (cursor) params.set('cursor', cursor);
+      const result = await this.bybitPublic('instruments-info', params);
+      if (!Array.isArray(result.list)) throw new Error('Invalid Bybit instruments response');
+      instruments.push(...result.list);
+      const next = result.nextPageCursor || '';
+      if (!next || next === cursor) break;
+      cursor = next;
+    }
+    const tickersResult = await this.bybitPublic('tickers', new URLSearchParams({ category: 'linear' }));
+    const tickers = new Map<string, any>((tickersResult.list || []).map((t: any) => [String(t.symbol), t]));
+    const unique = new Map<string, SymbolMeta>();
+    for (const instrument of instruments) {
+      // Both quote and settlement must be USDT; exclude USDC and dated contracts.
+      if (instrument.quoteCoin !== 'USDT' || instrument.settleCoin !== 'USDT' ||
+          instrument.status !== 'Trading' || instrument.contractType !== 'LinearPerpetual' ||
+          !String(instrument.symbol).endsWith('USDT')) continue;
+      const ticker = tickers.get(instrument.symbol);
+      const baseAsset = String(instrument.baseCoin || instrument.symbol.slice(0, -4));
+      const tickSize = Number(instrument.priceFilter?.tickSize || 0.01);
+      const qtyStep = Number(instrument.lotSizeFilter?.qtyStep || 1);
+      const decimals = (n: number) => {
+        const text = String(n);
+        return text.includes('.') ? text.split('.')[1].length : 0;
+      };
+      unique.set(instrument.symbol, {
+        symbol: instrument.symbol,
+        baseAsset,
+        quoteAsset: 'USDT',
+        exchange: 'bybit',
+        maxLeverage: Number(instrument.leverageFilter?.maxLeverage) || 0,
+        minNotional: Number(instrument.lotSizeFilter?.minNotionalValue) || 0,
+        pricePrecision: decimals(tickSize),
+        quantityPrecision: decimals(qtyStep),
+        category: 'LAYER1',
+        lastPrice: Number(ticker?.lastPrice) || 0,
+        change24h: ticker ? Number(ticker.price24hPcnt) * 100 : NaN,
+        volume24h: Number(ticker?.turnover24h) || 0,
+        fundingRate: ticker ? Number(ticker.fundingRate) * 100 : null
+      } as SymbolMeta);
+    }
+    if (!unique.size) throw new Error('Bybit returned no active USDT perpetual contracts');
+    return [...unique.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }
+
+  // Compute changes from *actual historical close prices*, not simulated 24h percentages.
+  // Intraday comparisons use 1h bars; longer comparisons use daily bars.
+  async getBybitTimeframeChanges(symbol: string): Promise<Record<string, number | null>> {
+    if (!/^[A-Z0-9]{2,35}USDT$/.test(symbol)) throw new Error('Invalid USDT symbol');
+    const cached = this.bybitReturnCache.get(symbol);
+    if (cached && cached.until > Date.now()) return cached.values;
+    const [hourly, daily] = await Promise.all([
+      this.bybitPublic('kline', new URLSearchParams({ category: 'linear', symbol, interval: '60', limit: '80' })),
+      this.bybitPublic('kline', new URLSearchParams({ category: 'linear', symbol, interval: 'D', limit: '100' }))
+    ]);
+    const h: any[] = hourly.list || [];
+    const d: any[] = daily.list || [];
+    const currentPrice = Number(h[0]?.[4]);
+    const percent = (rows: any[], hours: number) => {
+      if (!Number.isFinite(currentPrice) || currentPrice <= 0 || rows.length <= hours) return null;
+      const old = Number(rows[hours]?.[4]);
+      return Number.isFinite(old) && old > 0 ? (currentPrice / old - 1) * 100 : null;
+    };
+    const values: Record<string, number | null> = {
+      '1H': percent(h, 1), '2H': percent(h, 2), '4H': percent(h, 4),
+      '12H': percent(h, 12), '24H': percent(h, 24), '48H': percent(h, 48),
+      '72H': percent(h, 72), '1W': percent(d, 7), '1M': percent(d, 30), '3M': percent(d, 90)
+    };
+    this.bybitReturnCache.set(symbol, { until: Date.now() + 600000, values });
+    return values;
+  }
+
   getSymbols(exchangeId: ExchangeId): SymbolMeta[] {
     return DEFAULT_PERPETUAL_SYMBOLS.map((s) => ({
       ...s,
