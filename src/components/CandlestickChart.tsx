@@ -409,7 +409,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const chartElement = (
     <div
       ref={chartRootRef}
-      className={`relative bg-[#171920] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
+      className={`keys-chart-frame relative bg-[#171920] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
         isFullscreen ? 'fixed inset-0 z-[100] rounded-none shadow-2xl' : ''
       }`}
     >
