@@ -29,6 +29,7 @@ export interface SymbolMeta {
   lastPrice: number;
   change24h: number;
   volume24h: number;
+  fundingRate?: number | null; // percentage, real exchange ticker
 }
 
 export interface SavedSymbolGroup {
