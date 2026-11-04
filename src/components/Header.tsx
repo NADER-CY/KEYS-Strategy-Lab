@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center: Prominent Horizontal Top Navigation (EXACTLY 4 PAGES, NO LEFT SIDEBAR) */}
         <nav
           aria-label="Main Navigation"
-          className="row-start-1 col-start-1 sm:col-span-2 flex w-full max-w-full items-center justify-start sm:justify-center overflow-x-auto overflow-y-hidden whitespace-nowrap py-1 px-1 rounded-xl border border-[#1a2436]/90 bg-[#070b13] shadow-inner gap-0.5"
+          className="row-start-1 col-start-1 sm:col-span-2 flex w-full max-w-full items-center justify-start sm:justify-center overflow-x-auto overflow-y-hidden whitespace-nowrap py-1 px-1 gap-5 bg-transparent border-0 shadow-none"
         >
           {pages.map((p, idx) => {
             const isActive = currentPage === p.id;
@@ -83,13 +83,13 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={p.id}
                 onClick={() => onPageChange(p.id)}
-                className={`flex items-center gap-1.5 px-2.5 2xl:px-3.5 py-1.5 rounded-lg text-xs 2xl:text-sm font-bold transition-all shrink-0 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-1 py-1.5 text-xs 2xl:text-sm font-bold transition-colors shrink-0 cursor-pointer bg-transparent border-0 rounded-none hover:text-[#1463FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1463FF] ${
                   isActive
-                    ? 'bg-[#1463FF] text-white shadow-md shadow-blue-500/40 ring-1 ring-blue-400'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60 border border-transparent'
+                    ? 'text-[#1463FF]'
+                    : 'text-slate-300 hover:text-[#1463FF]'
                 }`}
               >
-                <span className="w-5 h-5 rounded-md bg-black/30 flex items-center justify-center text-[11px] font-mono text-slate-300">
+                <span className="w-4 h-5 flex items-center justify-center text-[11px] font-mono text-current">
                   {idx + 1}
                 </span>
                 <span className="material-symbols-outlined !text-[18px]">{p.icon}</span>
