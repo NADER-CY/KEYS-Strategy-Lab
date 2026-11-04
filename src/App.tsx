@@ -47,6 +47,7 @@ export default function App() {
     manualLeverage: 10,
     marginMode: 'cross',
     maxOpenPositions: 100,
+    signalSide: 'both',
     cycleFromDay: 1,
     cycleToDay: 7,
     backtestTimeframe: 5,
