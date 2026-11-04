@@ -292,9 +292,19 @@ export default function App() {
     setIndicators((prev) => prev.filter((indicator) => indicator.id !== id));
     if (activeIndicator.id === id) {
       const fallback = indicators.find((indicator) => indicator.id === 'keys_v6') || SAVED_INDICATORS_DEFAULT[0];
-      setActiveIndicator(fallback);
-      setActiveStrategyName(fallback.name);
+      handleSelectIndicator(fallback);
     }
+  };
+
+  const handleSelectIndicator = (indicator: SavedIndicator) => {
+    setActiveIndicator(indicator);
+    setActiveStrategyName(indicator.name);
+    // Persist chart selection so refreshing the page restores the same script.
+    void fetch('/api/lab-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portfolioConfig, pnlConfig, indicatorId: indicator.id })
+    }).catch((error) => console.warn('Unable to persist selected chart indicator:', error));
   };
 
   const handleDeleteRuns = async (ids: string[]): Promise<void> => {
@@ -421,10 +431,7 @@ export default function App() {
             savedGroups={savedGroups}
             indicators={indicators}
             activeIndicator={activeIndicator}
-            onSelectIndicator={(indicator) => {
-              setActiveIndicator(indicator);
-              setActiveStrategyName(indicator.name);
-            }}
+            onSelectIndicator={handleSelectIndicator}
             onSaveIndicator={handleSaveIndicator}
             onDeleteIndicator={handleDeleteIndicator}
             onRunBacktest={(params) => handleRunBacktest(undefined, params)}
