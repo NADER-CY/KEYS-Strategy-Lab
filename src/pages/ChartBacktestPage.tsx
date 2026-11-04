@@ -625,37 +625,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-300">Indicator Preset:</span>
-            <select
-              value={activeIndicator.id}
-              onChange={(e) => {
-                const found = indicators.find((ind) => ind.id === e.target.value);
-                if (found) onSelectIndicator(found);
-              }}
-              className="bg-[#171920] border border-[#19273c] text-sm font-semibold text-slate-100 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-            >
-              {indicators.map((ind) => (
-                <option key={ind.id} value={ind.id}>
-                  {ind.name} ({ind.version})
-                </option>
-              ))}
-            </select>
-            {activeIndicator.id !== 'keys_v6' && (
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!window.confirm(`Delete indicator "${activeIndicator.name}"?`)) return;
-                  try { await onDeleteIndicator(activeIndicator.id); }
-                  catch (error: any) { alert(error?.message || 'Unable to delete indicator'); }
-                }}
-                title="Delete selected indicator"
-                className="rounded-lg border border-rose-500/30 px-2.5 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10"
-              >
-                Delete
-              </button>
-            )}
-          </div>
         </div>
 
         {/* ─── TAB 1: STRATEGY & MANAGEMENT ───────────────────────────────── */}
@@ -682,9 +651,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   </div>
                   <select
                     value={portfolioConfig.savedGroupId}
-                    onChange={(e) =>
-                      onUpdatePortfolioConfig({ ...portfolioConfig, savedGroupId: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const group = savedGroups.find((g) => g.id === e.target.value);
+                      if (group) onUpdatePortfolioConfig({ ...portfolioConfig, savedGroupId: group.id, exchange: group.exchange });
+                    }}
                     className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
                   >
                     {savedGroups.map((g) => (
@@ -695,27 +665,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Exchange Data Source</label>
-                  <select
-                    value={portfolioConfig.exchange}
-                    onChange={(e) =>
-                      onUpdatePortfolioConfig({
-                        ...portfolioConfig,
-                        exchange: e.target.value as any
-                      })
-                    }
-                    className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 capitalize font-medium"
-                  >
-                    <option value="bybit">Bybit (USDT Perpetual)</option>
-                    <option value="binance">Binance (USDT-M Futures)</option>
-                    <option value="okx">OKX (USDT Swap)</option>
-                    <option value="bitget">Bitget (USDT Futures)</option>
-                    <option value="kucoin">KuCoin (USDT Futures)</option>
-                    <option value="gateio">Gate.io (USDT Perpetual)</option>
-                    <option value="mexc">MEXC (USDT Perpetual)</option>
-                  </select>
-                </div>
 
                 <div>
                   <div className="flex items-center justify-between text-sm mb-1.5">
@@ -735,6 +684,36 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     }
                     className="w-full bg-[#171920] border border-[#19273c] text-base font-bold font-mono text-white rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-slate-300">Indicator Preset</label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={activeIndicator.id}
+                      onChange={(e) => {
+                        const found = indicators.find((ind) => ind.id === e.target.value);
+                        if (found) onSelectIndicator(found);
+                      }}
+                      className="min-w-0 flex-1 bg-[#171920] border border-[#19273c] text-sm font-semibold text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      {indicators.map((ind) => (
+                        <option key={ind.id} value={ind.id}>{ind.name} ({ind.version})</option>
+                      ))}
+                    </select>
+                    {activeIndicator.id !== 'keys_v6' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Delete indicator "${activeIndicator.name}"?`)) return;
+                          try { await onDeleteIndicator(activeIndicator.id); }
+                          catch (error: any) { alert(error?.message || 'Unable to delete indicator'); }
+                        }}
+                        title="Delete selected indicator"
+                        className="rounded-lg border border-rose-500/30 px-2.5 py-2 text-sm text-rose-400 hover:bg-rose-500/10"
+                      >Delete</button>
+                    )}
+                  </div>
                 </div>
 
               </div>
