@@ -15,7 +15,27 @@ import {
 import { SAVED_INDICATORS_DEFAULT } from './engine/defaultPineScripts';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<AppPage>('chart');
+  const pageRoutes: Record<AppPage, string> = {
+    chart: '/chart-backtest',
+    results: '/backtest-results',
+    positions: '/positions-charts',
+    symbols: '/symbol-universe'
+  };
+  const pageFromPath = (): AppPage =>
+    (Object.entries(pageRoutes).find(([, path]) => path === window.location.pathname)?.[0] as AppPage) || 'chart';
+  const [currentPage, setCurrentPage] = useState<AppPage>(pageFromPath);
+  const navigatePage = (page: AppPage) => {
+    if (window.location.pathname !== pageRoutes[page]) {
+      window.history.pushState({ page }, '', pageRoutes[page]);
+    }
+    setCurrentPage(page);
+  };
+  useEffect(() => {
+    const handleHistory = () => setCurrentPage(pageFromPath());
+    window.addEventListener('popstate', handleHistory);
+    return () => window.removeEventListener('popstate', handleHistory);
+  }, []);
+
 
   // Portfolio Configuration
   const [portfolioConfig, setPortfolioConfig] = useState<PortfolioConfig>({
@@ -256,7 +276,7 @@ export default function App() {
   const handleInspectTradeOnChart = (runId: string, tradeId: string) => {
     setSelectedRunId(runId);
     setInspectTradeId(tradeId);
-    setCurrentPage('positions');
+    navigatePage('positions');
   };
 
   const handleCloneRunSettings = (run: BacktestRun) => {
@@ -271,7 +291,7 @@ export default function App() {
       const found = indicators.find((ind) => ind.name.toLowerCase().includes(run.strategyName.toLowerCase()));
       if (found) setActiveIndicator(found);
     }
-    setCurrentPage('chart');
+    navigatePage('chart');
   };
 
   const handleApplyUniverseToBacktest = (groupId: string, autoRun = false) => {
@@ -283,7 +303,7 @@ export default function App() {
         exchange: group.exchange
       };
       setPortfolioConfig(updatedCfg);
-      setCurrentPage('chart');
+      navigatePage('chart');
       if (autoRun) {
         setTimeout(() => {
           handleRunBacktest(updatedCfg);
@@ -297,7 +317,7 @@ export default function App() {
       {/* ─── TOP HORIZONTAL NAVIGATION ───────────────────────────────────── */}
       <Header
         currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        onPageChange={navigatePage}
         activeStrategy={activeStrategyName}
         onStrategyChange={(s) => {
           setActiveStrategyName(s);
@@ -333,11 +353,11 @@ export default function App() {
             backtestProgress={backtestProgress}
             currentDateProgress={currentDateProgress}
             openPositionsCount={openPositionsCount}
-            onNavigateToSymbols={() => setCurrentPage('symbols')}
+            onNavigateToSymbols={() => navigatePage('symbols')}
             initialSymbol={chartActiveSymbol}
             lastCompletedRun={lastCompletedRun}
-            onNavigateToResults={() => setCurrentPage('results')}
-            onNavigateToPage={setCurrentPage}
+            onNavigateToResults={() => navigatePage('results')}
+            onNavigateToPage={navigatePage}
           />
         )}
 
@@ -348,9 +368,9 @@ export default function App() {
             onSelectRun={setSelectedRunId}
             onDeleteRun={handleDeleteRun}
             onInspectTradeOnChart={handleInspectTradeOnChart}
-            onNewBacktest={() => setCurrentPage('chart')}
+            onNewBacktest={() => navigatePage('chart')}
             onCloneSettingsToBacktest={handleCloneRunSettings}
-            onNavigateToPage={setCurrentPage}
+            onNavigateToPage={navigatePage}
           />
         )}
 
@@ -360,11 +380,11 @@ export default function App() {
             selectedRunId={selectedRunId}
             onSelectRun={setSelectedRunId}
             inspectTradeId={inspectTradeId}
-            onNewBacktest={() => setCurrentPage('chart')}
-            onNavigateToPage={setCurrentPage}
+            onNewBacktest={() => navigatePage('chart')}
+            onNavigateToPage={navigatePage}
             onTestSymbolOnChart={(sym) => {
               setChartActiveSymbol(sym);
-              setCurrentPage('chart');
+              navigatePage('chart');
             }}
           />
         )}
@@ -377,7 +397,7 @@ export default function App() {
             onSaveGroup={handleSaveGroup}
             onDeleteGroup={handleDeleteGroup}
             onApplyUniverseToBacktest={handleApplyUniverseToBacktest}
-            onNavigateToPage={setCurrentPage}
+            onNavigateToPage={navigatePage}
           />
         )}
       </main>
