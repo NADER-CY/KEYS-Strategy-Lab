@@ -503,13 +503,13 @@ export class ExchangeDataService {
     requiredCount = 1000,
     live = false
   ): Promise<OHLCV[]> {
-    // Use the exchange's native 15m candles for indicator/backtest parity with
-    // TradingView's Bybit 15m chart. Reconstructing them from separately cached
-    // 5m candles can change OHLCV and therefore candle-sensitive KEYS signals.
-    // Other custom intervals still use the existing lower-timeframe aggregation.
-    const nativeBybit15m = exchangeId === 'bybit' && timeframeMinutes === 15;
+    // Native Bybit intervals are more accurate and far cheaper to fetch than
+    // reconstructing 1y of weekly/monthly candles from 5m data. Custom 10m,
+    // 20m, ... intervals continue to aggregate exchange 5m candles.
+    const nativeBybitInterval = exchangeId === 'bybit' &&
+      [5, 15, 30, 60, 120, 240, 1440, 10080, 43200].includes(timeframeMinutes);
     const isMultipleOf5 = timeframeMinutes % 5 === 0;
-    const baseIntervalMinutes = nativeBybit15m ? 15 : isMultipleOf5 ? 5 : 1;
+    const baseIntervalMinutes = nativeBybitInterval ? timeframeMinutes : isMultipleOf5 ? 5 : 1;
     const aggregationFactor = timeframeMinutes / baseIntervalMinutes;
     const baseCandlesNeeded = Math.ceil(requiredCount * aggregationFactor);
 
@@ -728,7 +728,9 @@ export class ExchangeDataService {
           NEIROUSDT: '1000NEIROCTOUSDT'
         };
         const bybitSym = bybitMemeMap[symbol] || symbol;
-        const intervalStr = intervalMinutes.toString();
+        const intervalStr = intervalMinutes === 1440 ? 'D' :
+          intervalMinutes === 10080 ? 'W' :
+          intervalMinutes === 43200 ? 'M' : intervalMinutes.toString();
         const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${intervalStr}&limit=${Math.min(1000, requestedLimit)}&end=${endTimeMs}`;
         const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
