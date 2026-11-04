@@ -93,31 +93,28 @@ export default function App() {
 
   // Load initial data from server APIs
   useEffect(() => {
-    // 1. Groups
-    fetch('/api/groups')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setSavedGroups(data);
-          setPortfolioConfig((prev) => ({
-            ...prev,
-            savedGroupId: data[0].id,
-            exchange: data[0].exchange
-          }));
-        }
-      })
-      .catch((err) => console.error('Failed to load groups:', err));
-
-    // 2. Indicators
-    fetch('/api/indicators')
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setIndicators(data);
-          setActiveIndicator(data[0]);
-        }
-      })
-      .catch((err) => console.error('Failed to load indicators:', err));
+    // Load related profiles together so saved settings cannot be overwritten
+    // by a later async default-group or default-indicator response.
+    Promise.all([
+      fetch('/api/groups').then((r) => r.json()),
+      fetch('/api/indicators').then((r) => r.json()),
+      fetch('/api/lab-settings').then((r) => r.json())
+    ]).then(([groups, savedIndicators, settings]) => {
+      if (Array.isArray(groups) && groups.length > 0) setSavedGroups(groups);
+      if (Array.isArray(savedIndicators) && savedIndicators.length > 0) setIndicators(savedIndicators);
+      if (settings?.portfolioConfig && settings?.pnlConfig) {
+        setPortfolioConfig(settings.portfolioConfig);
+        setPnLConfig(settings.pnlConfig);
+      } else if (Array.isArray(groups) && groups.length > 0) {
+        setPortfolioConfig((prev) => ({ ...prev, savedGroupId: groups[0].id, exchange: groups[0].exchange }));
+      }
+      const chosen = savedIndicators?.find?.((i: SavedIndicator) => i.id === settings?.indicatorId)
+        || savedIndicators?.[0];
+      if (chosen) {
+        setActiveIndicator(chosen);
+        setActiveStrategyName(chosen.name);
+      }
+    }).catch((err) => console.error('Failed to load saved lab profiles:', err));
 
     // 3. Runs
     fetch('/api/backtest/runs')
@@ -335,6 +332,36 @@ export default function App() {
     }
   };
 
+  const handleSaveLabSettings = async () => {
+    try {
+      const response = await fetch('/api/lab-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolioConfig, pnlConfig, indicatorId: activeIndicator.id })
+      });
+      if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
+      alert('Settings saved on the server. They will be restored after reloading.');
+    } catch (err: any) {
+      alert(`Save failed: ${err.message}`);
+    }
+  };
+
+  const handleLoadLabSettings = async () => {
+    try {
+      const response = await fetch('/api/lab-settings');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const settings = await response.json();
+      if (!settings?.portfolioConfig || !settings?.pnlConfig) throw new Error('No saved settings found');
+      setPortfolioConfig(settings.portfolioConfig);
+      setPnLConfig(settings.pnlConfig);
+      const indicator = indicators.find((i) => i.id === settings.indicatorId);
+      if (indicator) { setActiveIndicator(indicator); setActiveStrategyName(indicator.name); }
+      alert('Saved settings restored.');
+    } catch (err: any) {
+      alert(`Load failed: ${err.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#101216] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white">
       {/* ─── TOP HORIZONTAL NAVIGATION ───────────────────────────────────── */}
@@ -354,8 +381,8 @@ export default function App() {
               const found = indicators.find((ind) => ind.name.toLowerCase().includes(s.toLowerCase()));
               if (found) setActiveIndicator(found);
             }}
-            onSaveConfig={() => alert('Strategy configuration saved to persistent lab profile.')}
-            onLoadConfig={() => alert('Strategy configuration profile restored.')}
+            onSaveConfig={handleSaveLabSettings}
+            onLoadConfig={handleLoadLabSettings}
             onResetConfig={() => {
               if (confirm('Reset strategy lab settings to defaults?')) window.location.reload();
             }}
