@@ -309,8 +309,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           time: buy.time as Time,
           position: 'belowBar',
           color: '#0BBA74',
-          shape: 'arrowUp',
-          text: 'BUY',
+          shape: 'square',
+          text: `Buy ${buy.price.toFixed(precision)}`,
           size: 1
         });
       }
@@ -320,8 +320,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           time: sell.time as Time,
           position: 'aboveBar',
           color: '#FF4761',
-          shape: 'arrowDown',
-          text: 'SELL',
+          shape: 'square',
+          text: `Sell ${sell.price.toFixed(precision)}`,
           size: 1
         });
       }
