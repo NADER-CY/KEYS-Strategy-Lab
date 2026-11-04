@@ -103,7 +103,16 @@ export default function App() {
       if (Array.isArray(groups) && groups.length > 0) setSavedGroups(groups);
       if (Array.isArray(savedIndicators) && savedIndicators.length > 0) setIndicators(savedIndicators);
       if (settings?.portfolioConfig && settings?.pnlConfig) {
-        setPortfolioConfig(settings.portfolioConfig);
+        const storedConfig = settings.portfolioConfig as PortfolioConfig;
+        const matchingGroup = Array.isArray(groups)
+          ? groups.find((g: SavedSymbolGroup) => g.id === storedConfig.savedGroupId && g.symbols.length > 0)
+          : undefined;
+        const availableGroup = matchingGroup || (Array.isArray(groups)
+          ? groups.find((g: SavedSymbolGroup) => g.symbols.length > 0)
+          : undefined);
+        setPortfolioConfig(availableGroup
+          ? { ...storedConfig, savedGroupId: availableGroup.id, exchange: availableGroup.exchange }
+          : storedConfig);
         setPnLConfig(settings.pnlConfig);
       } else if (Array.isArray(groups) && groups.length > 0) {
         setPortfolioConfig((prev) => ({ ...prev, savedGroupId: groups[0].id, exchange: groups[0].exchange }));
@@ -240,8 +249,14 @@ export default function App() {
   };
 
   const handleDeleteGroup = async (id: string) => {
-    await fetch(`/api/groups/${id}`, { method: 'DELETE' });
-    setSavedGroups((prev) => prev.filter((g) => g.id !== id));
+    const response = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`Unable to delete group (HTTP ${response.status})`);
+    const remaining = savedGroups.filter((g) => g.id !== id);
+    setSavedGroups(remaining);
+    if (portfolioConfig.savedGroupId === id) {
+      const replacement = remaining.find((g) => g.symbols.length > 0);
+      if (replacement) setPortfolioConfig((prev) => ({ ...prev, savedGroupId: replacement.id, exchange: replacement.exchange }));
+    }
   };
 
   // Indicator Management
