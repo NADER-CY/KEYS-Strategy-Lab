@@ -259,6 +259,186 @@ export class ExchangeDataService {
     return values;
   }
 
+
+  // Exchange-specific, active USDT-margined perpetual universes. Never substitute demo symbols.
+  private otherUniverseCache = new Map<ExchangeId, { until: number; symbols: SymbolMeta[] }>();
+  private otherUniversePending = new Map<ExchangeId, Promise<SymbolMeta[]>>();
+
+  private async getJson(url: string): Promise<any> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 18000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${new URL(url).host}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async getLiveSymbols(exchangeId: ExchangeId): Promise<SymbolMeta[]> {
+    if (exchangeId === 'bybit') return this.getBybitSymbols();
+    const cached = this.otherUniverseCache.get(exchangeId);
+    if (cached && cached.until > Date.now()) return cached.symbols;
+    const pending = this.otherUniversePending.get(exchangeId);
+    if (pending) return pending;
+    const promise = this.loadOtherSymbols(exchangeId);
+    this.otherUniversePending.set(exchangeId, promise);
+    try {
+      const symbols = await promise;
+      if (symbols.length === 0) throw new Error(`No active USDT perpetuals returned by ${exchangeId}`);
+      this.otherUniverseCache.set(exchangeId, { until: Date.now() + 300000, symbols });
+      return symbols;
+    } catch (e) {
+      if (cached?.symbols.length) return cached.symbols;
+      throw e;
+    } finally {
+      this.otherUniversePending.delete(exchangeId);
+    }
+  }
+
+  private async loadOtherSymbols(exchangeId: ExchangeId): Promise<SymbolMeta[]> {
+    type RawContract = { symbol: string; base?: string; price?: number; change?: number; volume?: number;
+      leverage?: number; tick?: number; step?: number; minNotional?: number; funding?: number | null };
+    let contracts: RawContract[] = [];
+    const num = (v: any) => Number.isFinite(Number(v)) ? Number(v) : 0;
+
+    switch (exchangeId) {
+      case 'binance': {
+        const [info, tickers] = await Promise.all([
+          this.getJson('https://fapi.binance.com/fapi/v1/exchangeInfo'),
+          this.getJson('https://fapi.binance.com/fapi/v1/ticker/24hr')
+        ]);
+        const tick = new Map((Array.isArray(tickers) ? tickers : []).map((t: any) => [t.symbol, t]));
+        contracts = (info.symbols || [])
+          .filter((s: any) => s.status === 'TRADING' && s.contractType === 'PERPETUAL' &&
+            s.quoteAsset === 'USDT' && s.marginAsset === 'USDT' && s.symbol?.endsWith('USDT'))
+          .map((s: any) => {
+            const t: any = tick.get(s.symbol) || {};
+            return { symbol: s.symbol, base: s.baseAsset, price: num(t.lastPrice), change: num(t.priceChangePercent),
+              volume: num(t.quoteVolume), tick: num(s.filters?.find((f: any) => f.filterType === 'PRICE_FILTER')?.tickSize),
+              step: num(s.filters?.find((f: any) => f.filterType === 'LOT_SIZE')?.stepSize),
+              minNotional: num(s.filters?.find((f: any) => f.filterType === 'MIN_NOTIONAL')?.notional) };
+          });
+        break;
+      }
+      case 'okx': {
+        const [info, tickers] = await Promise.all([
+          this.getJson('https://www.okx.com/api/v5/public/instruments?instType=SWAP'),
+          this.getJson('https://www.okx.com/api/v5/market/tickers?instType=SWAP')
+        ]);
+        if (info.code !== '0' || tickers.code !== '0') throw new Error('OKX API error');
+        const tick = new Map((tickers.data || []).map((t: any) => [t.instId, t]));
+        contracts = (info.data || [])
+          .filter((s: any) => s.instId?.endsWith('-USDT-SWAP') && s.settleCcy === 'USDT' && s.state === 'live')
+          .map((s: any) => {
+            const t: any = tick.get(s.instId) || {};
+            const last = num(t.last);
+            const open = num(t.open24h);
+            return { symbol: s.instId.replace(/-/g, '').replace(/SWAP$/, ''), base: s.instId.split('-')[0],
+              price: last, change: open > 0 ? (last / open - 1) * 100 : NaN,
+              volume: num(t.volCcy24h) * last, tick: num(s.tickSz), step: num(s.lotSz) };
+          });
+        break;
+      }
+      case 'bitget': {
+        const [info, tickers] = await Promise.all([
+          this.getJson('https://api.bitget.com/api/v2/mix/market/contracts?productType=USDT-FUTURES'),
+          this.getJson('https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES')
+        ]);
+        if (info.code !== '00000' || tickers.code !== '00000') throw new Error('Bitget API error');
+        const tick = new Map((tickers.data || []).map((t: any) => [t.symbol, t]));
+        contracts = (info.data || []).filter((s: any) => s.symbol?.endsWith('USDT') &&
+          s.quoteCoin === 'USDT' && (!s.symbolStatus || s.symbolStatus === 'normal'))
+          .map((s: any) => {
+            const t: any = tick.get(s.symbol) || {};
+            return { symbol: s.symbol, base: s.baseCoin, price: num(t.lastPr),
+              change: num(t.change24h) * 100, volume: num(t.usdtVolume),
+              leverage: num(s.maxLever), step: Number(`1e-${num(s.volumePlace)}`),
+              tick: Number(`1e-${num(s.pricePlace)}`) };
+          });
+        break;
+      }
+      case 'kucoin': {
+        const result = await this.getJson('https://api-futures.kucoin.com/api/v1/contracts/active');
+        if (result.code !== '200000') throw new Error('KuCoin API error');
+        contracts = (result.data || []).filter((s: any) =>
+          s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' &&
+          s.status === 'Open' || s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' && s.status === 'open'
+          || s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' && s.open === true)
+          .map((s: any) => {
+            const base = String(s.baseCurrency || '').toUpperCase();
+            const normalized = base === 'XBT' ? 'BTC' : base;
+            return { symbol: normalized + 'USDT', base: normalized, price: num(s.lastTradePrice || s.markPrice),
+              change: num(s.priceChgPct) * 100, volume: num(s.turnoverOf24h),
+              leverage: s.initialMargin ? Math.round(1 / num(s.initialMargin)) : 0,
+              tick: num(s.tickSize), step: num(s.lotSize) };
+          });
+        break;
+      }
+      case 'gateio': {
+        const [list, tickers] = await Promise.all([
+          this.getJson('https://api.gateio.ws/api/v4/futures/usdt/contracts?limit=2000&offset=0'),
+          this.getJson('https://api.gateio.ws/api/v4/futures/usdt/tickers')
+        ]);
+        if (!Array.isArray(list) || !Array.isArray(tickers)) throw new Error('Gate futures response invalid');
+        const tick = new Map(tickers.map((t: any) => [t.contract, t]));
+        contracts = list.filter((s: any) => String(s.name).endsWith('_USDT') &&
+          !s.in_delisting && !s.is_delisted)
+          .map((s: any) => {
+            const t: any = tick.get(s.name) || {};
+            const base = String(s.name).split('_')[0];
+            return { symbol: base + 'USDT', base, price: num(t.last),
+              change: num(t.change_percentage), volume: num(t.volume_24h_quote),
+              leverage: num(s.leverage_max), tick: num(s.order_price_round),
+              step: num(s.order_size_min), funding: num(t.funding_rate) * 100 };
+          });
+        break;
+      }
+      case 'mexc': {
+        const [info, tickers] = await Promise.all([
+          this.getJson('https://contract.mexc.com/api/v1/contract/detail'),
+          this.getJson('https://contract.mexc.com/api/v1/contract/ticker')
+        ]);
+        if (!info.success || !tickers.success) throw new Error('MEXC API error');
+        const arr = Array.isArray(tickers.data) ? tickers.data : [tickers.data];
+        const tick = new Map(arr.map((t: any) => [t.symbol, t]));
+        contracts = (info.data || []).filter((s: any) => s.quoteCoin === 'USDT' &&
+          s.settleCoin === 'USDT' && s.symbol?.endsWith('_USDT') && s.state === 0)
+          .map((s: any) => {
+            const t: any = tick.get(s.symbol) || {};
+            return { symbol: String(s.symbol).replace('_', ''), base: s.baseCoin,
+              price: num(t.lastPrice), change: num(t.riseFallRate) * 100,
+              volume: num(t.amount24), leverage: num(s.maxLeverage),
+              tick: Number(`1e-${num(s.priceScale)}`),
+              step: Number(`1e-${num(s.volScale)}`), funding: num(t.fundingRate) * 100 };
+          });
+        break;
+      }
+      default: throw new Error(`Unsupported exchange: ${exchangeId}`);
+    }
+
+    const decimalPlaces = (value: number) => {
+      if (value <= 0) return 0;
+      const plain = value.toString();
+      if (plain.includes('e-')) return Number(plain.split('e-')[1]);
+      return plain.includes('.') ? plain.split('.')[1].length : 0;
+    };
+    const unique = new Map<string, SymbolMeta>();
+    for (const s of contracts) {
+      if (!s.symbol || !/^[A-Z0-9]+USDT$/.test(s.symbol)) continue;
+      unique.set(s.symbol, {
+        symbol: s.symbol, baseAsset: s.base || s.symbol.slice(0, -4), quoteAsset: 'USDT',
+        exchange: exchangeId, maxLeverage: s.leverage || 0, minNotional: s.minNotional || 0,
+        pricePrecision: decimalPlaces(s.tick || 0), quantityPrecision: decimalPlaces(s.step || 0),
+        category: DEFAULT_PERPETUAL_SYMBOLS.find((v) => v.symbol === s.symbol)?.category || 'Other',
+        lastPrice: s.price || 0, change24h: s.change ?? NaN, volume24h: s.volume || 0,
+        fundingRate: s.funding ?? null
+      });
+    }
+    return [...unique.values()].sort((a,b) => a.symbol.localeCompare(b.symbol));
+  }
+
   getSymbols(exchangeId: ExchangeId): SymbolMeta[] {
     return DEFAULT_PERPETUAL_SYMBOLS.map((s) => ({
       ...s,
