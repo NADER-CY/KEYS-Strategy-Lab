@@ -18,7 +18,10 @@ import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
 import { calculateExecutedEntryPrice } from '../src/engine/executionPrice';
-import { ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
+import { ORIGINAL_KEYS_PINE_SCRIPT, isUtBotAlertsScript } from '../src/engine/defaultPineScripts';
+import { calculateUtBotSignals } from '../src/engine/utBotCalculations';
+import { toHeikinAshiCandles } from '../src/engine/indicatorCalculations';
+import { toRenkoCandles } from '../src/engine/renkoChart';
 import { hasCycleReachedExpiry } from '../src/engine/cycleTiming';
 
 export interface ActiveJob {
@@ -68,8 +71,10 @@ export class BacktestService {
     if (!group || group.symbols.length === 0) throw new Error('Select a saved group containing at least one symbol.');
     if (group.exchange !== portfolioConfig.exchange) throw new Error('Selected group exchange does not match the test exchange.');
     const indicator = storageService.getIndicators().find((i) => i.id === indicatorId);
-    if (indicatorId !== 'keys_v6' || !indicator || indicator.code.trim() !== ORIGINAL_KEYS_PINE_SCRIPT.trim()) {
-      throw new Error('This Pine Script is not supported by the executable backtest engine. Select the original KEYS Liquidity Trap & SAR indicator; arbitrary Pine scripts are not executed.');
+    const isOriginalKeys = indicatorId === 'keys_v6' && indicator?.code.trim() === ORIGINAL_KEYS_PINE_SCRIPT.trim();
+    const isUtBot = !!indicator && isUtBotAlertsScript(indicator.code);
+    if (!isOriginalKeys && !isUtBot) {
+      throw new Error('This Pine Script does not have a verified executable backtest adapter. Supported scripts: original KEYS and UT Bot Alerts v4.');
     }
     // Persist and execute the exact same parameter snapshot. Omitted inputs
     // inherit the saved indicator profile, never an unrelated hardcoded value.
@@ -135,7 +140,7 @@ export class BacktestService {
     storageService.saveBacktestRun(newRun);
 
     // Run execution in background worker process / async
-    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, effectiveParams).catch((err) => {
+    this.executeSimulation(job, symbols, portfolioConfig, pnlConfig, effectiveParams, isUtBot).catch((err) => {
       console.error(`Backtest ${runId} error:`, err);
       job.run.status = 'FAILED';
       job.run.error = err.message;
@@ -150,7 +155,8 @@ export class BacktestService {
     symbols: string[],
     portfolioConfig: PortfolioConfig,
     pnlConfig: PnLConfig,
-    indicatorParams: Record<string, any>
+    indicatorParams: Record<string, any>,
+    isUtBot = false
   ): Promise<void> {
     const run = job.run;
     const startTime = Date.now();
@@ -197,7 +203,13 @@ export class BacktestService {
         candleMap.set(sym, candles);
 
         // Compute indicator signals
-        const indicatorResult = calculateKeysIndicator(candles, indicatorParams);
+        const candleType = indicatorParams.candleType || 'heikin_ashi';
+        const signalCandles = candleType === 'renko'
+          ? toRenkoCandles(candles, portfolioConfig.backtestTimeframe)
+          : candleType === 'regular' ? candles : toHeikinAshiCandles(candles);
+        const indicatorResult = isUtBot
+          ? calculateUtBotSignals(signalCandles, indicatorParams, candleType === 'renko' ? signalCandles : candles)
+          : calculateKeysIndicator(candles, indicatorParams);
         const buyMap = new Map<number, { price: number; reason: string }>();
         const sellMap = new Map<number, { price: number; reason: string }>();
         const adxMap = new Map<number, number>();
@@ -209,10 +221,12 @@ export class BacktestService {
         indicatorResult.buySignals.forEach((s) => buyMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 BUY' }));
         indicatorResult.sellSignals.forEach((s) => sellMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 SELL' }));
 
+        const adxValues: (number | null)[] = 'adxValues' in indicatorResult ? indicatorResult.adxValues as (number | null)[] : [];
+        const rsiValues: (number | null)[] = 'rsiValues' in indicatorResult ? indicatorResult.rsiValues as (number | null)[] : [];
         for (let i = 0; i < candles.length; i++) {
           const t = candles[i].time;
-          if (Number.isFinite(indicatorResult.adxValues[i])) adxMap.set(t, indicatorResult.adxValues[i]!);
-          if (Number.isFinite(indicatorResult.rsiValues[i])) rsiMap.set(t, indicatorResult.rsiValues[i]!);
+          if (Number.isFinite(adxValues[i])) adxMap.set(t, adxValues[i]!);
+          if (Number.isFinite(rsiValues[i])) rsiMap.set(t, rsiValues[i]!);
         }
 
         signalMap.set(sym, { buyMap, sellMap, adxMap, rsiMap });
