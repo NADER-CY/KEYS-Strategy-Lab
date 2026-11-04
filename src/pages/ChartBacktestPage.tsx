@@ -27,7 +27,7 @@ interface ChartBacktestPageProps {
   indicators: SavedIndicator[];
   activeIndicator: SavedIndicator;
   onSelectIndicator: (indicator: SavedIndicator) => void;
-  onSaveIndicator: (indicator: SavedIndicator) => void;
+  onSaveIndicator: (indicator: SavedIndicator) => Promise<void> | void;
   onRunBacktest: (indicatorParams?: Record<string, any>) => void;
   onStopBacktest: () => void;
   isBacktestRunning: boolean;
@@ -254,7 +254,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   };
 
   // Save current tuning into indicator parameters
-  const handleSaveIndicatorSettings = () => {
+  const handleSaveIndicatorSettings = async () => {
     const updatedParams = activeIndicator.params.map((p) => ({
       ...p,
       value: localParams[p.name] !== undefined ? localParams[p.name] : p.value
@@ -264,9 +264,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       params: updatedParams,
       lastUpdated: new Date().toISOString()
     };
-    onSaveIndicator(updated);
-    handleApplyToChart();
-    alert('Indicator settings saved and applied to strategy lab profile!');
+    try {
+      await onSaveIndicator(updated);
+      handleApplyToChart();
+      alert('Indicator settings saved successfully. The next backtest will use these exact settings.');
+    } catch (error: any) {
+      alert(`Indicator settings were NOT saved: ${error?.message || 'Unknown error'}`);
+    }
   };
 
   // Compile and validate Pine Script in editor
