@@ -66,13 +66,12 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   const [tabName, setTabName] = useState<string>(activeGroup ? activeGroup.name : 'Tab 1 — 100 Symbols');
 
   // Filtering & search
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSelectedOnly, setShowSelectedOnly] = useState<boolean>(false);
   const [activeChunkTab, setActiveChunkTab] = useState<number>(0); // 100-symbol contract tab
   const [rowsPerPage, setRowsPerPage] = useState<25 | 50 | 75 | 100>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  type SortKey = 'symbol' | 'lastPrice' | 'change24h' | 'fundingRate' | 'category' | '1H' | '2H' | '4H' | '12H' | '24H' | '48H' | '72H' | '1W' | '1M' | '3M';
+  type SortKey = 'symbol' | 'lastPrice' | 'change24h' | 'fundingRate' | '1H' | '2H' | '4H' | '12H' | '24H' | '48H' | '72H' | '1W' | '1M' | '3M';
   const [sortKey, setSortKey] = useState<SortKey>('symbol');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -218,14 +217,13 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   const filteredUniverse = useMemo(() => {
     return symbols.filter((s) => {
       if (showSelectedOnly && !selectedSymbols.includes(s.symbol)) return false;
-      if (categoryFilter !== 'All' && s.category !== categoryFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return s.symbol.toLowerCase().includes(q) || s.baseAsset.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [symbols, showSelectedOnly, selectedSymbols, categoryFilter, searchQuery]);
+  }, [symbols, showSelectedOnly, selectedSymbols, searchQuery]);
 
   // Single searchable and sortable universe; pagination is handled below.
   // Contract-range tabs were redundant and have been removed.
@@ -292,9 +290,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     setCurrentPage(1);
   };
 
-  useEffect(() => { setCurrentPage(1); }, [activeChunkTab, categoryFilter, searchQuery, showSelectedOnly, currentExchange]);
+  useEffect(() => { setCurrentPage(1); }, [activeChunkTab, searchQuery, showSelectedOnly, currentExchange]);
 
-  const categories = ['All', 'LAYER1', 'LAYER2', 'DeFi', 'AI', 'GameFi', 'Meme', 'Payments', 'NFT', 'Other'];
 
   return (
     <div className="space-y-4 pb-12 animate-fadeIn text-[#A6B4C8] [&_.text-white]:text-[#D8E2F0] [&_.text-slate-100]:text-[#D8E2F0] [&_.text-slate-200]:text-[#C5D0DE] [&_.text-slate-300]:text-[#A6B4C8] [&_.text-slate-400]:text-[#8393AA]">
@@ -421,27 +418,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
       {/* ─── FILTERS, SEARCH & DYNAMIC 100-SYMBOL TABS ─────────────────── */}
       <section className="bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
-        {/* Category Pills Row */}
+        {/* Symbol selection and page-size controls */}
         <div className="flex items-center gap-4 overflow-x-auto whitespace-nowrap pb-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
-            Category:
-          </span>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                setCategoryFilter(cat);
-                setActiveChunkTab(0);
-              }}
-              className={`px-0 py-1 text-xs font-semibold shrink-0 bg-transparent border-0 rounded-none transition-colors hover:text-[#1463FF] ${
-                categoryFilter === cat
-                  ? 'text-[#1463FF]'
-                  : 'text-slate-300 hover:text-[#1463FF]'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
           <span className="ml-auto shrink-0 text-xs font-semibold text-slate-400">{selectedSymbols.length} selected</span>
           <span className="shrink-0 text-xs font-semibold text-slate-400">Rows:</span>
           {([25, 50, 75, 100] as const).map((count) => (
@@ -544,13 +522,12 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
           <div className="w-full min-w-0 max-w-full overflow-x-hidden bg-transparent border-0">
             <table className="w-full min-w-0 table-fixed border-collapse text-left tabular-nums text-[clamp(11px,0.88vw,14px)]">
               <colgroup>
-                {/* Keep Symbol and Last Price visually close; allocate room to Category. Total 100%. */}
+                {/* Compact symbol/price columns; no category column. Total 100%. */}
                 <col style={{width:'3%'}} />
                 <col style={{width:'9%'}} />
                 <col style={{width:'9%'}} />
                 {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'5.9%'}} />)}
-                <col style={{width:'9%'}} />
-                <col style={{width:'11%'}} />
+                <col style={{width:'20%'}} />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-[#101216] text-slate-400 border-b border-white/[0.06]">
                 <tr>
@@ -567,7 +544,6 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                       onClick={() => toggleSort(period)}>{period} % ↕</th>
                   ))}
                   <th className="px-1 py-2.5 text-right cursor-pointer" onClick={() => toggleSort('fundingRate')}>Funding ↕</th>
-                  <th className="pl-1 pr-4 py-2.5 text-right cursor-pointer" onClick={() => toggleSort('category')}>Category ↕</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06]">
@@ -614,12 +590,11 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                           </td>
                         );
                       })}
-                      <td className="px-1 py-2.5 text-right text-slate-400 truncate">{typeof symbol.fundingRate === 'number' && Number.isFinite(symbol.fundingRate) ? `${symbol.fundingRate.toFixed(4)}%` : '—'}</td>
-                      <td title={symbol.category} className="pl-1 pr-4 py-2.5 text-right text-slate-400 truncate">{symbol.category}</td>
+                      <td className="px-1 py-2.5 text-right text-[#F59E0B] font-semibold truncate">{typeof symbol.fundingRate === 'number' && Number.isFinite(symbol.fundingRate) ? `${symbol.fundingRate.toFixed(4)}%` : '—'}</td>
                     </tr>
                   );
                 })}
-                {pagedSymbols.length === 0 && <tr><td colSpan={15} className="p-8 text-center text-slate-400">No matching symbols</td></tr>}
+                {pagedSymbols.length === 0 && <tr><td colSpan={14} className="p-8 text-center text-slate-400">No matching symbols</td></tr>}
               </tbody>
             </table>
           </div>
