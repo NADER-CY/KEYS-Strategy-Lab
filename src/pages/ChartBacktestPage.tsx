@@ -1405,8 +1405,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               title={activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code) ? 'This saved Pine script needs an executable strategy adapter before backtesting.' : undefined}
               className={`px-8 py-3 rounded-xl text-base font-extrabold flex items-center space-x-2.5 transition shadow-lg ${
                 isBacktestRunning
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                  : 'bg-[#0BBA74] hover:bg-emerald-500 text-slate-950 shadow-emerald-500/20 active:scale-95'
+                  ? 'bg-[#FF4761] text-white cursor-not-allowed shadow-rose-500/20'
+                  : 'bg-[#1463FF] hover:bg-blue-500 text-white shadow-blue-500/20 active:scale-95'
               }`}
             >
               <span className="material-symbols-outlined !font-bold !text-[22px]">play_arrow</span>
