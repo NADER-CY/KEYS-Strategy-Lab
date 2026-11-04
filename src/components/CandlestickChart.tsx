@@ -165,7 +165,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       width: container.clientWidth,
       height: isFullscreen ? Math.max(300, window.innerHeight - 125) : height,
       layout: {
-        background: { color: '#171920' },
+        background: { color: '#101216' },
         textColor: '#94a3b8'
       },
       grid: {
