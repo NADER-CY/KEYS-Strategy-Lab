@@ -357,7 +357,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
           {/* Real Live Selected Counter Badge */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 bg-[#171920] px-4 py-2 rounded-xl border border-[#19273c]">
+            <div className="flex items-center gap-3 bg-transparent px-4 py-2 border-0">
               <div className="text-right">
                 <span className="text-2xl font-bold font-mono text-[#0BBA74] tabular-nums leading-none block">
                   {selectedSymbols.length}
