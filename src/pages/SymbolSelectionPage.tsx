@@ -354,7 +354,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleSaveAsNewTab(true)}
+                onClick={() => handleSaveAsNewTab(false)}
                 className="px-3.5 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 transition shadow-sm"
               >
                 <span className="material-symbols-outlined !text-[18px]">add</span>
