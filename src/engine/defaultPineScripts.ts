@@ -136,7 +136,7 @@ export const SAVED_INDICATORS_DEFAULT: SavedIndicator[] = [
       { id: 'adxlen', name: 'adxlen', title: 'ADX Smoothing', type: 'int', default: 14, value: 14, min: 5, max: 50, group: 'ADX Settings' },
       { id: 'dilen', name: 'dilen', title: 'DI Length', type: 'int', default: 14, value: 14, min: 5, max: 50, group: 'ADX Settings' },
       { id: 'Adx_trendThreshold', name: 'Adx_trendThreshold', title: 'Trend Strength Threshold', type: 'int', default: 30, value: 30, min: 10, max: 60, group: 'ADX Settings' },
-      { id: 'useSARFilter', name: 'useSARFilter', title: 'Enable SAR Filter', type: 'bool', default: false, value: false, group: 'Parabolic SAR Filter' },
+      { id: 'useSARFilter', name: 'useSARFilter', title: 'Enable SAR Filter', type: 'bool', default: true, value: true, group: 'Parabolic SAR Filter' },
       { id: 'sarStart', name: 'sarStart', title: 'SAR Start', type: 'float', default: 0.02, value: 0.02, min: 0.005, max: 0.1, step: 0.005, group: 'Parabolic SAR Filter' },
       { id: 'sarIncrement', name: 'sarIncrement', title: 'SAR Increment', type: 'float', default: 0.02, value: 0.02, min: 0.005, max: 0.1, step: 0.005, group: 'Parabolic SAR Filter' },
       { id: 'sarMaximum', name: 'sarMaximum', title: 'SAR Max Value', type: 'float', default: 0.2, value: 0.2, min: 0.05, max: 0.5, step: 0.05, group: 'Parabolic SAR Filter' }
