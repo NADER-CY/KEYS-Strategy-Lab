@@ -130,6 +130,7 @@ const DEFAULT_PERPETUAL_SYMBOLS: Omit<SymbolMeta, 'exchange'>[] = [
 
 export class ExchangeDataService {
   private cacheDir: string;
+  private liveRefreshAt = new Map<string, number>();
 
   constructor() {
     this.cacheDir = path.resolve(process.cwd(), '.cache', 'ohlcv');
@@ -461,7 +462,8 @@ export class ExchangeDataService {
     exchangeId: ExchangeId,
     symbol: string,
     timeframeMinutes: number,
-    requiredCount = 1000
+    requiredCount = 1000,
+    live = false
   ): Promise<OHLCV[]> {
     // We fetch base 5m data if requested timeframe is a multiple of 5 (e.g. 5, 10, 15, 25, 30, 60, 240)
     // or base 1m data if requested timeframe is not a multiple of 5.
@@ -474,7 +476,8 @@ export class ExchangeDataService {
       exchangeId,
       symbol.toUpperCase(),
       baseIntervalMinutes,
-      baseCandlesNeeded
+      baseCandlesNeeded,
+      live
     );
 
     if (baseCandles.length === 0) {
@@ -497,7 +500,8 @@ export class ExchangeDataService {
     exchangeId: ExchangeId,
     symbol: string,
     intervalMinutes: number,
-    targetCount: number
+    targetCount: number,
+    live = false
   ): Promise<OHLCV[]> {
     const cacheFile = path.join(this.cacheDir, `${exchangeId}_${symbol}_${intervalMinutes}m_base.json`);
     let cachedCandles: OHLCV[] = [];
@@ -514,13 +518,36 @@ export class ExchangeDataService {
 
     const intervalSec = intervalMinutes * 60;
     const nowSec = Math.floor(Date.now() / 1000);
-    const earliestRequiredSec = nowSec - targetCount * intervalSec;
+    const earliestRequiredSec = nowSec - Math.max(0, targetCount - 2) * intervalSec;
 
     // Check if cached data already satisfies the requested count and is reasonably fresh (< 15 mins old)
     const isCacheFresh = cachedCandles.length > 0 && (nowSec - cachedCandles[cachedCandles.length - 1].time) < 900;
     const hasEnoughHistory = cachedCandles.length >= targetCount && cachedCandles[0].time <= earliestRequiredSec;
 
-    if (isCacheFresh && hasEnoughHistory) {
+    // Live chart requests update the current (still forming) bar independently
+    // of the 15-minute historical cache. Keep REST calls bounded across viewers.
+    const liveKey = `${exchangeId}:${symbol}:${intervalMinutes}`;
+    const recentEnoughForIncremental = cachedCandles.length > 0 &&
+      nowSec - cachedCandles[cachedCandles.length - 1].time <= intervalSec * 10;
+    if (live && hasEnoughHistory && recentEnoughForIncremental) {
+      if (Date.now() - (this.liveRefreshAt.get(liveKey) || 0) < 2500) return cachedCandles;
+      try {
+        const recent = await this.fetchSingleExchangeKlines(exchangeId, symbol, intervalMinutes, Date.now(), 10);
+        const merged = new Map<number, OHLCV>();
+        cachedCandles.forEach((c) => merged.set(c.time, c));
+        recent.forEach((c) => merged.set(c.time, c));
+        const updated = [...merged.values()].sort((a, b) => a.time - b.time);
+        fs.writeFileSync(cacheFile, JSON.stringify(updated), 'utf8');
+        this.liveRefreshAt.set(liveKey, Date.now());
+        return updated;
+      } catch (err: any) {
+        console.warn(`Live refresh failed for ${symbol}: ${err.message}`);
+        // Return history; the client must not label the cached snapshot as fresh.
+        throw new Error(`Live candle refresh failed: ${err.message}`);
+      }
+    }
+
+    if (isCacheFresh && hasEnoughHistory && !live) {
       return cachedCandles;
     }
 
@@ -638,7 +665,8 @@ export class ExchangeDataService {
     exchangeId: ExchangeId,
     symbol: string,
     intervalMinutes: number,
-    endTimeMs: number
+    endTimeMs: number,
+    requestedLimit = 1000
   ): Promise<OHLCV[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -656,7 +684,7 @@ export class ExchangeDataService {
         };
         const bybitSym = bybitMemeMap[symbol] || symbol;
         const intervalStr = intervalMinutes.toString();
-        const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${intervalStr}&limit=1000&end=${endTimeMs}`;
+        const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${intervalStr}&limit=${Math.min(1000, requestedLimit)}&end=${endTimeMs}`;
         const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
         const json = await res.json();
