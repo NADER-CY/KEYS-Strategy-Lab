@@ -51,6 +51,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const candleSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const lineSeriesMapRef = useRef<Map<string, ISeriesApi<any>>>(new Map());
   const candlesRef = useRef<OHLCV[]>(candles);
+  const plottedCandlesRef = useRef<OHLCV[]>([]);
   const prevSymbolRef = useRef<string>(symbol);
   const prevTfRef = useRef<number>(timeframeMinutes);
 
@@ -129,6 +130,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       wickDownColor: '#FF4761'
     });
     candleSeriesRef.current = candleSeries as any;
+    plottedCandlesRef.current = [];
 
     // Hover tooltip tracking
     chart.subscribeCrosshairMove((param) => {
@@ -182,7 +184,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       low: c.low,
       close: c.close
     }));
-    candleSeriesRef.current.setData(formattedCandles);
+    const previous = plottedCandlesRef.current;
+    const sameMarket = prevSymbolRef.current === symbol && prevTfRef.current === timeframeMinutes;
+    const canUpdateLast = sameMarket && previous.length > 0 &&
+      previous[0].time === candles[0].time &&
+      candles.length >= previous.length && candles.length <= previous.length + 1 &&
+      candles[candles.length - 1].time >= previous[previous.length - 1].time;
+    if (canUpdateLast) {
+      candleSeriesRef.current.update(formattedCandles[formattedCandles.length - 1]);
+    } else {
+      candleSeriesRef.current.setData(formattedCandles);
+    }
+    plottedCandlesRef.current = candles;
 
     // Indicator overlays
     lineSeriesMapRef.current.forEach((series) => {
