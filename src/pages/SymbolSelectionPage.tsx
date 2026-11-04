@@ -50,6 +50,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 }) => {
   const [symbols, setSymbols] = useState<SymbolMeta[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [symbolsError, setSymbolsError] = useState<string>('');
+  const [historicalChanges, setHistoricalChanges] = useState<Record<string, Record<string, number | null>>>({});
+  const [loadingChanges, setLoadingChanges] = useState(false);
 
   // Active group selection
   const [activeGroupId, setActiveGroupId] = useState<string>(() => {
@@ -69,7 +72,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   const [activeChunkTab, setActiveChunkTab] = useState<number>(0); // 100-symbol contract tab
   const [rowsPerPage, setRowsPerPage] = useState<25 | 50 | 75 | 100>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [sortKey, setSortKey] = useState<'symbol' | 'lastPrice' | 'change24h' | 'volume24h' | 'maxLeverage'>('symbol');
+  type SortKey = 'symbol' | 'lastPrice' | 'change24h' | 'fundingRate' | 'category' | '1H' | '2H' | '4H' | '12H' | '24H' | '48H' | '72H' | '1W' | '1M' | '3M';
+  const [sortKey, setSortKey] = useState<SortKey>('symbol');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Sync selected symbols when activeGroup changes
@@ -88,6 +92,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     let isCancelled = false;
     const fetchSymbols = async () => {
       setLoading(true);
+      setSymbolsError('');
+      setSymbols([]);
+      setHistoricalChanges({});
       try {
         const res = await fetch(`/api/symbols?exchange=${currentExchange}`);
         if (res.ok) {
@@ -97,8 +104,11 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             const sorted = [...data].sort((a, b) => a.symbol.localeCompare(b.symbol));
             setSymbols(sorted);
           }
+        } else {
+          throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (!isCancelled) setSymbolsError(err.message || 'Symbol list unavailable');
         console.error('Error fetching symbols:', err);
       } finally {
         if (!isCancelled) setLoading(false);
@@ -220,24 +230,52 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   }, [filteredUniverse, activeChunkTab]);
 
   // Display a single continuous financial table with internal pagination.
+  const historicalPeriods = ['1H','2H','4H','12H','24H','48H','72H','1W','1M','3M'] as const;
+  const getHistorical = (symbol: string, period: string): number | null => {
+    const value = historicalChanges[symbol]?.[period];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  };
   const sortedChunkSymbols = useMemo(() => {
     const output = [...currentChunkSymbols];
     output.sort((a, b) => {
-      const left = a[sortKey];
-      const right = b[sortKey];
+      const left = historicalPeriods.includes(sortKey as any) ? getHistorical(a.symbol, sortKey) : (a as any)[sortKey];
+      const right = historicalPeriods.includes(sortKey as any) ? getHistorical(b.symbol, sortKey) : (b as any)[sortKey];
+      // Unknown values always appear last; never invent missing prices/returns.
+      if (left == null || !Number.isFinite(Number(left)) && typeof left !== 'string') return 1;
+      if (right == null || !Number.isFinite(Number(right)) && typeof right !== 'string') return -1;
       const result = typeof left === 'string' && typeof right === 'string'
-        ? left.localeCompare(right)
-        : Number(left) - Number(right);
+        ? left.localeCompare(right) : Number(left) - Number(right);
       return sortDirection === 'asc' ? result : -result;
     });
     return output;
-  }, [currentChunkSymbols, sortKey, sortDirection]);
+  }, [currentChunkSymbols, sortKey, sortDirection, historicalChanges]);
 
   const pageCount = Math.max(1, Math.ceil(sortedChunkSymbols.length / rowsPerPage));
   const safePage = Math.min(currentPage, pageCount);
   const firstRowIndex = (safePage - 1) * rowsPerPage;
   const pagedSymbols = sortedChunkSymbols.slice(firstRowIndex, firstRowIndex + rowsPerPage);
   const selectedInTab = currentChunkSymbols.filter((symbol) => selectedSymbols.includes(symbol.symbol)).length;
+  // Fetch and cache real 1H–3M changes only for the currently displayed rows.
+  // Background requests are limited to 25 contracts to avoid rate-limit storms.
+  useEffect(() => {
+    if (currentExchange !== 'bybit' || pagedSymbols.length === 0) return;
+    const ids = pagedSymbols.map((s) => s.symbol).filter((s) => historicalChanges[s] === undefined);
+    if (ids.length === 0) return;
+    const controller = new AbortController();
+    setLoadingChanges(true);
+    fetch(`/api/symbols/changes?symbols=${encodeURIComponent(ids.join(','))}`, { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Historical returns HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setHistoricalChanges((old) => ({ ...old, ...data }));
+      })
+      .catch((err) => { if (!controller.signal.aborted) console.warn(err); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingChanges(false); });
+    return () => controller.abort();
+  }, [currentExchange, pagedSymbols.map((s) => s.symbol).join(',')]);
+
   const selectPage = (checked: boolean) => {
     const ids = pagedSymbols.map((symbol) => symbol.symbol);
     setSelectedSymbols((previous) => {
@@ -586,6 +624,8 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             ))}
           </div>
         </div>
+        {symbolsError && <div className="p-4 text-rose-400 font-semibold" role="alert">{symbolsError}</div>}
+        {loadingChanges && currentExchange === 'bybit' && <div className="text-xs text-slate-400">Loading historical returns from Bybit...</div>}
         {loading ? <div className="p-8 text-center text-slate-300">Loading contracts...</div> : (
           <div className="w-full min-w-0 max-w-full overflow-x-hidden bg-transparent border-0">
             <table className="w-full min-w-0 table-fixed border-collapse text-left tabular-nums text-[clamp(10px,0.83vw,13px)]">
@@ -608,18 +648,17 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                   </th>
                   <th className="pl-1.5 pr-0 py-2.5 cursor-pointer" onClick={() => toggleSort('symbol')}>Symbol ↕</th>
                   <th className="pl-0 pr-2 py-2.5 text-right cursor-pointer" onClick={() => toggleSort('lastPrice')}>Last Price ↕</th>
-                  {['1H','2H','4H','12H','24H','48H','72H','1W','1M','3M'].map((period) => (
-                    <th key={period} className={`px-0.5 py-2.5 text-right ${period === '24H' ? 'cursor-pointer' : ''}`}
-                      onClick={() => { if (period === '24H') toggleSort('change24h'); }}>{period} {period === '24H' ? '↕' : '%'}</th>
+                  {historicalPeriods.map((period) => (
+                    <th key={period} className="px-0.5 py-2.5 text-right cursor-pointer"
+                      onClick={() => toggleSort(period)}>{period} % ↕</th>
                   ))}
-                  <th className="px-1 py-2.5 text-right">Funding</th>
-                  <th className="pl-1 pr-4 py-2.5 text-right">Category</th>
+                  <th className="px-1 py-2.5 text-right cursor-pointer" onClick={() => toggleSort('fundingRate')}>Funding ↕</th>
+                  <th className="pl-1 pr-4 py-2.5 text-right cursor-pointer" onClick={() => toggleSort('category')}>Category ↕</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06]">
                 {pagedSymbols.map((symbol) => {
                   const checked = selectedSymbols.includes(symbol.symbol);
-                  const pct = symbol.change24h;
                   return (
                     <tr key={symbol.symbol} onClick={() => toggleSymbol(symbol.symbol)}
                       className="cursor-pointer bg-transparent hover:bg-white/[0.025] transition-colors">
@@ -651,12 +690,17 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                       <td className="pl-0 pr-2 py-2.5 text-right font-semibold text-white truncate" title={String(symbol.lastPrice)}>
                         {Number.isFinite(symbol.lastPrice) && symbol.lastPrice > 0 ? symbol.lastPrice.toLocaleString('en-US', { maximumFractionDigits: 8 }) : '—'}
                       </td>
-                      {['1H','2H','4H','12H','24H','48H','72H','1W','1M','3M'].map((period) => (
-                        <td key={period} className={`px-0.5 py-2.5 text-right font-semibold truncate ${period === '24H' && Number.isFinite(pct) ? (pct >= 0 ? 'text-[#0BBA74]' : 'text-[#FF4761]') : 'text-slate-500'}`}>
-                          {period === '24H' && Number.isFinite(pct) ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-                        </td>
-                      ))}
-                      <td className="px-1 py-2.5 text-right text-slate-500 truncate">—</td>
+                      {historicalPeriods.map((period) => {
+                        const value = getHistorical(symbol.symbol, period);
+                        const change = period === '24H' && value === null && Number.isFinite(symbol.change24h)
+                          ? symbol.change24h : value;
+                        return (
+                          <td key={period} className={`px-0.5 py-2.5 text-right font-semibold truncate ${change === null ? 'text-slate-500' : change >= 0 ? 'text-[#0BBA74]' : 'text-[#FF4761]'}`}>
+                            {change === null ? '—' : `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}
+                          </td>
+                        );
+                      })}
+                      <td className="px-1 py-2.5 text-right text-slate-400 truncate">{typeof symbol.fundingRate === 'number' && Number.isFinite(symbol.fundingRate) ? `${symbol.fundingRate.toFixed(4)}%` : '—'}</td>
                       <td title={symbol.category} className="pl-1 pr-4 py-2.5 text-right text-slate-400 truncate">{symbol.category}</td>
                     </tr>
                   );
