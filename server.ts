@@ -4,6 +4,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { SUPPORTED_EXCHANGES, exchangeService } from './server/exchanges.ts';
@@ -15,6 +16,16 @@ import { validatePnLConfig } from './src/engine/pnlRules.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Commit of the running source tree, so deployments can be verified.
+const RUNNING_COMMIT = (() => {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, encoding: 'utf8', timeout: 3000 }).trim();
+  } catch {
+    return 'unknown';
+  }
+})();
+const STARTED_AT = new Date().toISOString();
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -23,6 +34,11 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // --- API Routes ---
+
+  app.get('/api/health', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, commit: RUNNING_COMMIT, startedAt: STARTED_AT });
+  });
 
   // 1. Exchanges
   app.get('/api/exchanges', (req, res) => {

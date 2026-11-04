@@ -91,3 +91,24 @@ jobs:
         run: |
           curl -fsS --retry 5 --retry-delay 3 https://hamid.kipgoo.com/api/exchanges > /dev/null
           curl -fsS --retry 5 --retry-delay 3 https://hamid.kipgoo.com/symbol-universe > /dev/null
+
+      - name: Smoke test production version and read-only endpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=https://hamid.kipgoo.com
+          deployed="$(curl -fsS --retry 10 --retry-delay 3 "$base/api/health" | jq -r .commit)"
+          echo "Production is running $deployed (workflow commit $GITHUB_SHA)"
+          # A later queued push may already have deployed a newer main; it must contain this commit.
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...$deployed" -q .status)"
+          if [ "$status" != identical ] && [ "$status" != ahead ]; then
+            echo "Production does not contain $GITHUB_SHA (compare status: $status)"; exit 1
+          fi
+          curl -fsS "$base/chart-backtest" | grep -q 'id="root"'
+          for endpoint in /api/indicators /api/groups /api/lab-settings /api/backtest/runs; do
+            curl -fsS -o /dev/null "$base$endpoint"
+          done
+          curl -fsS "$base/api/indicators" | jq -e 'map(.id) | index("keys_v6") != null' > /dev/null
+          curl -fsS "$base/api/candles?exchange=bybit&symbol=BTCUSDT&timeframe=15&limit=5" | jq -e 'length > 0 and .[0].close > 0' > /dev/null
+          echo "Production smoke tests passed"
