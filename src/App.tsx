@@ -50,6 +50,7 @@ export default function App() {
     cycleFromDay: 1,
     cycleToDay: 7,
     backtestTimeframe: 5,
+    testPeriodDays: 365,
     maxDrawdownCutoff: 15,
     slippageTolerance: 0.05,
     feeTakerPct: 0.055,
@@ -192,7 +193,8 @@ export default function App() {
           portfolioConfig: configToUse,
           pnlConfig,
           indicatorParams: paramsToUse,
-          strategyName: activeStrategyName
+          strategyName: activeIndicator.name,
+          indicatorId: activeIndicator.id
         })
       });
 
@@ -364,7 +366,10 @@ export default function App() {
             savedGroups={savedGroups}
             indicators={indicators}
             activeIndicator={activeIndicator}
-            onSelectIndicator={setActiveIndicator}
+            onSelectIndicator={(indicator) => {
+              setActiveIndicator(indicator);
+              setActiveStrategyName(indicator.name);
+            }}
             onSaveIndicator={handleSaveIndicator}
             onRunBacktest={(params) => handleRunBacktest(undefined, params)}
             onStopBacktest={handleStopBacktest}
