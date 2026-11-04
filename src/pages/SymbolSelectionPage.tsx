@@ -292,7 +292,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   useEffect(() => { setCurrentPage(1); }, [activeChunkTab, categoryFilter, searchQuery, showSelectedOnly, currentExchange]);
 
-  const categories = ['All', 'LAYER1', 'LAYER2', 'DeFi', 'AI', 'GameFi', 'Meme', 'Payments', 'NFT'];
+  const categories = ['All', 'LAYER1', 'LAYER2', 'DeFi', 'AI', 'GameFi', 'Meme', 'Payments', 'NFT', 'Other'];
 
   return (
     <div className="space-y-4 pb-12 animate-fadeIn">
