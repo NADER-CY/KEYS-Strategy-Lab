@@ -287,12 +287,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   return (
     <div
-      className={`relative bg-[#090e17] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
+      className={`relative bg-[#171920] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
         isFullscreen ? 'fixed inset-4 z-50 shadow-2xl' : ''
       }`}
     >
       {/* Top Chart Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-[#152236] bg-[#0c1322]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-[#152236] bg-[#171920]">
         {/* Left: Symbol & Price Ticker */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               <select
                 value={symbol}
                 onChange={(e) => onSymbolChange(e.target.value)}
-                className="bg-[#09111e] border border-[#1b2b44] text-base font-extrabold text-white rounded-lg px-3 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="bg-[#171920] border border-[#1b2b44] text-base font-extrabold text-white rounded-lg px-3 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {availableSymbols.map((s) => (
                   <option key={s} value={s}>
@@ -335,7 +335,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         </div>
 
         {/* Center: Timeframe Pills */}
-        <div className="flex items-center bg-[#070b13] p-1 rounded-xl border border-[#1a2436]">
+        <div className="flex items-center bg-[#171920] p-1 rounded-xl border border-[#1a2436]">
           {timeframes.map((tf) => (
             <button
               key={tf.label}
@@ -369,7 +369,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               className={`px-2 py-1 rounded-lg border text-xs font-mono font-bold transition cursor-pointer ${
                 isLive
                   ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
-                  : 'bg-[#09111e] border-[#1b2b44] text-slate-400 hover:text-white'
+                  : 'bg-[#171920] border-[#1b2b44] text-slate-400 hover:text-white'
               }`}
             >
               {isLive ? 'Auto (3.5s)' : 'Resume'}
@@ -380,7 +380,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             <button
               onClick={onRefresh}
               title="Refresh latest live candles immediately"
-              className="p-1.5 rounded-lg border border-[#1b2b44] bg-[#09111e] hover:bg-[#15233a] text-slate-300 hover:text-white transition cursor-pointer"
+              className="p-1.5 rounded-lg border border-[#1b2b44] bg-[#171920] hover:bg-[#15233a] text-slate-300 hover:text-white transition cursor-pointer"
             >
               <span className="material-symbols-outlined !text-[16px]">refresh</span>
             </button>
@@ -403,7 +403,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
               showIndicators
                 ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
-                : 'bg-[#09111e] border-[#1b2b44] text-slate-400 hover:text-slate-200'
+                : 'bg-[#171920] border-[#1b2b44] text-slate-400 hover:text-slate-200'
             }`}
           >
             <span className="material-symbols-outlined !text-[15px]">
@@ -415,7 +415,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Chart'}
-            className="p-1.5 rounded-lg bg-[#09111e] hover:bg-[#15233a] border border-[#1b2b44] text-slate-300 hover:text-white transition cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#1b2b44] text-slate-300 hover:text-white transition cursor-pointer"
           >
             <span className="material-symbols-outlined !text-[18px]">
               {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
@@ -427,7 +427,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       {/* Main Chart Area */}
       <div className="relative flex-1 w-full flex" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : `${height}px` }}>
         {/* Left Drawing Tools Sidebar Toolbar from Stitch */}
-        <div className="w-10 border-r border-[#152236] bg-[#070d17] flex flex-col items-center py-2 space-y-2 shrink-0 z-10 text-slate-400">
+        <div className="w-10 border-r border-[#152236] bg-[#171920] flex flex-col items-center py-2 space-y-2 shrink-0 z-10 text-slate-400">
           <button
             onClick={() => setActiveTool('pointer')}
             className={`p-1.5 rounded-lg transition ${activeTool === 'pointer' ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}`}
@@ -471,7 +471,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
         {/* Legend Overlay - Minimal when clean, detailed only when overlays enabled */}
         {showIndicators && (
-          <div className="absolute top-3 left-14 z-20 flex flex-wrap items-center gap-2.5 text-xs bg-[#070b13]/90 backdrop-blur px-3 py-1.5 rounded-lg border border-[#172338] text-slate-200 pointer-events-none">
+          <div className="absolute top-3 left-14 z-20 flex flex-wrap items-center gap-2.5 text-xs bg-[#171920]/90 backdrop-blur px-3 py-1.5 rounded-lg border border-[#172338] text-slate-200 pointer-events-none">
             <span className="text-amber-400 font-bold font-mono">KEYS v6 Indicator</span>
             <span className="text-emerald-400 font-medium">● YPSAR</span>
             <span className="text-orange-400 font-medium">● DPSAR</span>
