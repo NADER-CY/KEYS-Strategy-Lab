@@ -10,7 +10,8 @@ import {
   adx,
   parabolicSar,
   rollingExtreme,
-  calculateKeysIndicator
+  calculateKeysIndicator,
+  toHeikinAshiCandles
 } from '../src/engine/indicatorCalculations';
 import { exchangeService } from '../server/exchanges';
 import { storageService } from '../server/storage';
@@ -235,6 +236,15 @@ async function runTestSuite() {
     assert(agg15m[0].high === 109, 'Aggregated candle high should be max high');
     assert(agg15m[0].low === 98, 'Aggregated candle low should be min low');
     assert(agg15m[0].volume === 200, 'Aggregated volume should equal sum of volumes');
+
+    const ha = toHeikinAshiCandles([
+      { time: 0, open: 10, high: 14, low: 8, close: 12, volume: 100 },
+      { time: 900, open: 12, high: 16, low: 11, close: 13, volume: 220 }
+    ]);
+    assert(ha[0].open === 11 && ha[0].close === 11, 'Heikin Ashi first bar must use raw open/close midpoint and OHLC average');
+    assert(ha[1].open === 11 && ha[1].close === 13, 'Heikin Ashi next bar must use previous synthetic open and close');
+    assert(ha[1].high === 16 && ha[1].low === 11, 'Heikin Ashi extrema must encompass synthetic body');
+    assert(ha[1].volume === 220, 'Heikin Ashi must preserve real exchange volume for Pine volume_spike');
 
     // TradingView's Bybit 15m reference must use the exchange's native 15m
     // candles, not OHLCV reconstructed from potentially different 5m caches.
