@@ -644,6 +644,21 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Exchange</label>
+                  <select value={portfolioConfig.exchange}
+                    onChange={(e) => onUpdatePortfolioConfig({ ...portfolioConfig, exchange: e.target.value as PortfolioConfig['exchange'], savedGroupId: '__all_exchange__' })}
+                    className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-sm font-semibold text-slate-100">
+                    <option value="bybit">Bybit</option>
+                    <option value="binance">Binance</option>
+                    <option value="okx">OKX</option>
+                    <option value="bitget">Bitget</option>
+                    <option value="kucoin">KuCoin</option>
+                    <option value="gateio">Gate.io</option>
+                    <option value="mexc">MEXC</option>
+                  </select>
+                </div>
+
+                <div>
                   <div className="flex items-center justify-between text-sm mb-1.5">
                     <span className="text-slate-300 font-medium">Saved Symbol Group</span>
                     <button
@@ -658,10 +673,12 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     onChange={(e) => {
                       const group = savedGroups.find((g) => g.id === e.target.value);
                       if (group) onUpdatePortfolioConfig({ ...portfolioConfig, savedGroupId: group.id, exchange: group.exchange });
+                      else if (e.target.value === '__all_exchange__') onUpdatePortfolioConfig({ ...portfolioConfig, savedGroupId: '__all_exchange__' });
                     }}
                     className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
                   >
-                    {savedGroups.map((g) => (
+                    <option value="__all_exchange__">All Exchange Symbols</option>
+                    {savedGroups.filter((g) => g.exchange === portfolioConfig.exchange).map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.name} ({g.symbols.length} Symbols)
                       </option>
@@ -673,7 +690,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-sm mb-1.5">
                     <span className="text-slate-300 font-medium">Max Open Positions</span>
-                    <span className="text-blue-400 font-mono font-bold text-xs">{groupSymbolsCount} Selected in Group</span>
+                    <span className="text-blue-400 font-mono font-bold text-xs">{portfolioConfig.savedGroupId === '__all_exchange__' ? 'All Exchange Symbols' : `${groupSymbolsCount} Selected in Group`}</span>
                   </div>
                   <input
                     type="number"
