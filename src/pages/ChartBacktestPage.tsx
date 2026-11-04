@@ -106,8 +106,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // beneath the browser's fallback first option (e.g. OGUSDT).
   const displayedSymbol = chartSymbolList.includes(currentSymbol) ? currentSymbol : chartSymbolList[0];
   const [chartTimeframe, setChartTimeframe] = useState<number>(5);
-  const [chartHistoryDays, setChartHistoryDays] = useState<number>(0);
-  const chartHistoryBars = chartHistoryDays === 0 ? 400 : Math.ceil(chartHistoryDays * 1440 / chartTimeframe);
+  // Every chart interval exposes the full prior year; first render stays fast.
+  const chartHistoryBars = Math.ceil(365 * 1440 / chartTimeframe);
   const [candles, setCandles] = useState<OHLCV[]>([]);
   const displayCandles = useMemo(() => toHeikinAshiCandles(candles), [candles]);
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
@@ -156,6 +156,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // Initial load when symbol or chart timeframe changes
   useEffect(() => {
     let isCancelled = false;
+    const requestController = new AbortController();
     setCandles([]);
     setSignals(undefined);
     setFeedHealthy(false);
@@ -167,7 +168,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         // only if the requested market/timeframe is still active.
         const quickCount = Math.min(chartHistoryBars, 400);
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${quickCount}`
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${quickCount}`,
+          { signal: requestController.signal }
         );
         if (res.ok) {
           const data = await res.json();
@@ -187,7 +189,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       if (chartHistoryBars > 400 && !isCancelled) {
         try {
           const res = await fetch(
-            `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
+            `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`,
+            { signal: requestController.signal }
           );
           if (res.ok) {
             const history = await res.json();
@@ -209,8 +212,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     fetchCandles();
     return () => {
       isCancelled = true;
+      requestController.abort();
     };
-  }, [displayedSymbol, chartTimeframe, chartHistoryDays, portfolioConfig.exchange]);
+  }, [displayedSymbol, chartTimeframe, portfolioConfig.exchange]);
 
   // Live real-time polling every 3.5 seconds
   useEffect(() => {
@@ -252,13 +256,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       } finally {
         inFlight = false;
       }
-    }, chartHistoryDays >= 180 ? 15000 : 3500);
+    }, chartHistoryBars > 10000 ? 15000 : 3500);
 
     return () => {
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [isLiveActive, isBacktestRunning, displayedSymbol, chartTimeframe, chartHistoryDays, portfolioConfig.exchange]);
+  }, [isLiveActive, isBacktestRunning, displayedSymbol, chartTimeframe, portfolioConfig.exchange]);
 
   // Always calculate markers from the full currently displayed history,
   // including the older candles outside the live 400-bar refresh window.
@@ -440,20 +444,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-400">
-          <span>Chart History:</span>
-          <select
-            value={chartHistoryDays}
-            onChange={(event) => setChartHistoryDays(Number(event.target.value))}
-            className="rounded-lg border border-[#19273c] bg-[#171920] px-2 py-1.5 text-white font-semibold"
-            aria-label="Chart history period"
-          >
-            <option value={0}>Recent (400)</option>
-            <option value={30}>1 Month</option>
-            <option value={90}>3 Months</option>
-            <option value={180}>6 Months</option>
-            <option value={365}>1 Year</option>
-          </select>
-          <span>{candles.length.toLocaleString()} Heikin Ashi candles (real Bybit volume)</span>
           {loadingChart && <span className="text-blue-400">Loading…</span>}
           <span className="text-[#0BBA74]">BUY {signals?.buySignals.length ?? 0}</span>
           <span className="text-[#FF4761]">SELL {signals?.sellSignals.length ?? 0}</span>
