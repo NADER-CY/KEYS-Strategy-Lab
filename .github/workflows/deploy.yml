@@ -33,9 +33,9 @@ jobs:
           HOST_KEY: ${{ secrets.KEYS_SERVER_HOST_KEY }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s' "$DEPLOY_KEY" | base64 --decode > ~/.ssh/keys_deploy
-          ssh-keygen -y -f ~/.ssh/keys_deploy >/dev/null
+          printf '%s' "$DEPLOY_KEY" | tr -d '\\r\\n\\t ' | base64 --decode > ~/.ssh/keys_deploy
           chmod 600 ~/.ssh/keys_deploy
+          ssh-keygen -y -f ~/.ssh/keys_deploy >/dev/null
           printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
