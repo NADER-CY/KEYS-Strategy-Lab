@@ -521,7 +521,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       </section>
 
       {/* Compact full-width table: neutral background, no outer border or horizontal scrolling. */}
-      <section className="min-w-0 w-full bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
+      <section className="min-w-0 w-full bg-transparent border-0 rounded-none px-0 py-2 space-y-2">
         <div className="text-sm font-semibold text-[#D8E2F0]">
           {({ bybit: 'Bybit', binance: 'Binance', okx: 'OKX', bitget: 'Bitget', kucoin: 'KuCoin', gateio: 'Gate.io', mexc: 'MEXC' } as Record<ExchangeId, string>)[currentExchange]}
         </div>
@@ -608,30 +608,28 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             </table>
           </div>
         )}
-        {/* Centered selection total and page-size controls below the table */}
-        <div className="flex flex-wrap items-center justify-center gap-4 border-t border-[#243044] pt-3 text-sm">
-          <span className="text-slate-300 font-semibold tabular-nums">{selectedSymbols.length} selected</span>
-          <span className="text-slate-400">Rows:</span>
+        {/* Single compact row for selection, rows and pagination */}
+        <div className="flex items-center justify-center gap-4 overflow-x-auto whitespace-nowrap py-2 text-sm">
+          <span className="shrink-0 text-slate-300 font-semibold tabular-nums">{selectedSymbols.length} selected</span>
+          <span className="shrink-0 text-slate-400">Rows:</span>
           {([25, 50, 75, 100] as const).map((count) => (
             <button key={count} type="button"
               onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
               aria-pressed={rowsPerPage === count}
-              className={`bg-transparent border-0 px-0 py-1 text-sm font-bold tabular-nums transition-colors hover:text-[#1463FF] ${rowsPerPage === count ? 'text-[#1463FF]' : 'text-slate-400'}`}>
+              className={`shrink-0 bg-transparent border-0 px-0 py-1 text-sm font-bold tabular-nums transition-colors hover:text-[#1463FF] ${rowsPerPage === count ? 'text-[#1463FF]' : 'text-slate-400'}`}>
               {count}
             </button>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 text-sm">
-          <span className="text-slate-300 tabular-nums">
-            {sortedChunkSymbols.length === 0 ? 0 : firstRowIndex + 1}–{Math.min(firstRowIndex + rowsPerPage, sortedChunkSymbols.length)} of {sortedChunkSymbols.length} symbols
-            <span className="text-slate-500 ml-2">(total {filteredUniverse.length} matching exchange symbols)</span>
+          <span className="shrink-0 text-slate-600">|</span>
+          <span className="shrink-0 text-slate-400 tabular-nums">
+            {sortedChunkSymbols.length === 0 ? 0 : firstRowIndex + 1}–{Math.min(firstRowIndex + rowsPerPage, sortedChunkSymbols.length)} of {sortedChunkSymbols.length}
           </span>
-          <div className="flex items-center gap-3 font-semibold">
+          <div className="flex shrink-0 items-center gap-3 font-semibold">
             <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={safePage === 1} className="disabled:opacity-30 text-slate-300 hover:text-white">Previous</button>
+              disabled={safePage === 1} className="disabled:opacity-30 text-slate-300 hover:text-[#1463FF]">Previous</button>
             <span className="text-[#1463FF] tabular-nums">Page {safePage} of {pageCount}</span>
             <button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
-              disabled={safePage === pageCount} className="disabled:opacity-30 text-slate-300 hover:text-white">Next</button>
+              disabled={safePage === pageCount} className="disabled:opacity-30 text-slate-300 hover:text-[#1463FF]">Next</button>
           </div>
         </div>
 
