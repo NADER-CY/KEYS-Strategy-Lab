@@ -715,7 +715,7 @@ export class BacktestService {
           }
           closeTrade(pos, exitPrice, curTime, 'FUNDING_EXIT');
           fundingExcludedSymbols.add(pos.symbol);
-          run.logs.push(`[${job.currentDate}] [FUNDING EXIT] ${pos.symbol} ${pos.side}: paid funding ${pos.fundingPaid.toFixed(4)} reached ${maxFundingCostPct}% of ${pos.notional} entry notional; closed at ${exitPrice} even if losing; excluded from further entries.`);
+          run.logs.push(`[${job.currentDate}] [FUNDING EXIT] ${pos.symbol} ${pos.side}: paid funding ${pos.fundingPaid.toFixed(4)} reached ${maxFundingCostPct}% of ${pos.notional} entry notional; closed at ${pos.exitPrice} (mark ${exitPrice} incl. slippage) even if losing; excluded from further entries.`);
         }
         openPositions = openPositions.filter((pos) => !exiting.has(pos.id));
         queuedEntries = queuedEntries.filter((entry) => !fundingExcludedSymbols.has(entry.symbol));

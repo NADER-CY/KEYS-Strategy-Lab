@@ -232,6 +232,21 @@ await test('Historical Bybit funding: shorts receive positive rates, sign and ma
   funding = new Map();
 });
 
+await test('Emergency funding exit closes a costly contract, blocks re-entry and keeps the ledger reconciled', async () => {
+  const c = market.get('CUSDT')!;
+  // Negative rates: shorts PAY. 1% of notional per settlement -> 5% after 5.
+  const events = [];
+  for (let t = Math.ceil(c[0].time / 28800) * 28800; t < c[c.length - 1].time; t += 28800) events.push({ time: t, rate: -0.01 });
+  funding = new Map([['CUSDT', events]]);
+  const run = await runAndWait(new BacktestService(), ['CUSDT'], baseConfig({ cycleToDay: 30, maxFundingCostPct: 5 }));
+  const exit = run.trades.find((t) => t.exitReason === 'FUNDING_EXIT');
+  assert.ok(exit, 'funding exit must trigger');
+  assert.ok(exit!.fundingPaid >= 0.5 - 1e-9, `funding paid ${exit!.fundingPaid}`);
+  assert.ok(run.trades.every((t) => t.entryTime <= exit!.entryTime), 'symbol is not re-entered after a funding exit');
+  assertLedgerReconciles(run, 300);
+  funding = new Map();
+});
+
 await test('Cross margin: entries require FREE margin (balance + uPnL − used margin)', async () => {
   market.set('DUSDT', candlesFromPath(pathOf(BARS_30D, [[0, 100], [100, 99]])));
   market.set('EUSDT', candlesFromPath(pathOf(BARS_30D, [[0, 100], [100, 99]])));
