@@ -40,7 +40,7 @@ export default function App() {
   // Portfolio Configuration
   const [portfolioConfig, setPortfolioConfig] = useState<PortfolioConfig>({
     exchange: 'bybit',
-    savedGroupId: 'tab_100_bybit',
+    savedGroupId: '__all_exchange__',
     initialCapital: 300,
     positionSizeNotional: 10,
     useMaxLeverage: true,
@@ -110,12 +110,14 @@ export default function App() {
         const availableGroup = matchingGroup || (Array.isArray(groups)
           ? groups.find((g: SavedSymbolGroup) => g.symbols.length > 0)
           : undefined);
-        setPortfolioConfig(availableGroup
-          ? { ...storedConfig, savedGroupId: availableGroup.id, exchange: availableGroup.exchange }
-          : storedConfig);
+        setPortfolioConfig(storedConfig.savedGroupId === '__all_exchange__'
+          ? { ...storedConfig, marginMode: 'cross' }
+          : availableGroup
+            ? { ...storedConfig, savedGroupId: availableGroup.id, exchange: availableGroup.exchange, marginMode: 'cross' }
+            : { ...storedConfig, savedGroupId: '__all_exchange__', marginMode: 'cross' });
         setPnLConfig(settings.pnlConfig);
       } else if (Array.isArray(groups) && groups.length > 0) {
-        setPortfolioConfig((prev) => ({ ...prev, savedGroupId: groups[0].id, exchange: groups[0].exchange }));
+        setPortfolioConfig((prev) => ({ ...prev, savedGroupId: '__all_exchange__' }));
       }
       const chosen = savedIndicators?.find?.((i: SavedIndicator) => i.id === settings?.indicatorId)
         || savedIndicators?.[0];
