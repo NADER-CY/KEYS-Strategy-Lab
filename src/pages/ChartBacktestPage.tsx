@@ -87,6 +87,35 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const [savingConfig, setSavingConfig] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveSucceeded, setSaveSucceeded] = useState(false);
+  const [savingPnlRules, setSavingPnlRules] = useState(false);
+  const [pnlSaveStatus, setPnlSaveStatus] = useState('');
+  const updatePnlRules = (updated: PnLConfig) => {
+    setPnlSaveStatus('Unsaved changes to PnL rules.');
+    onUpdatePnLConfig(updated);
+  };
+
+  const handleSavePnlRules = async () => {
+    if (!onSaveConfig) {
+      setPnlSaveStatus('Unable to save: server settings handler is unavailable.');
+      return;
+    }
+    setSavingPnlRules(true);
+    setPnlSaveStatus('Saving PnL rules…');
+    try {
+      await onSaveConfig();
+      const response = await fetch('/api/lab-settings', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Verification failed (HTTP ${response.status})`);
+      const saved = await response.json();
+      if (JSON.stringify(saved?.pnlConfig) !== JSON.stringify(pnlConfig)) {
+        throw new Error('Server returned different PnL rules; please try again.');
+      }
+      setPnlSaveStatus('✓ All 5 PnL stages and Fixed Floor mode saved and verified on server.');
+    } catch (error: any) {
+      setPnlSaveStatus(`✕ Save failed: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setSavingPnlRules(false);
+    }
+  };
 
   const openSaveDialog = () => {
     setSaveMessage('');
@@ -930,7 +959,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     type="checkbox"
                     checked={pnlConfig.fixedFloorEnabled}
                     onChange={(e) =>
-                      onUpdatePnLConfig({
+                      updatePnlRules({
                         ...pnlConfig,
                         fixedFloorEnabled: e.target.checked
                       })
@@ -940,14 +969,20 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   <span className="text-sm font-semibold text-slate-200">Fixed Floor Preset Mode</span>
                 </label>
                 <button
-                  onClick={() => alert('PnL rules saved to persistent configuration.')}
+                  onClick={handleSavePnlRules}
+                  disabled={savingPnlRules}
                   className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
                 >
                   <span className="material-symbols-outlined !text-[17px]">save</span>
-                  <span>Save PnL Rules</span>
+                  <span>{savingPnlRules ? 'Saving…' : 'Save PnL Rules'}</span>
                 </button>
               </div>
             </div>
+            {pnlSaveStatus && (
+              <div role="status" aria-live="polite" className={`text-sm font-semibold ${pnlSaveStatus.startsWith('✕') ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {pnlSaveStatus}
+              </div>
+            )}
 
             {/* Explanation card */}
             <div className="p-3.5 rounded-xl bg-[#171920] border border-[#19273c] text-sm text-slate-300 flex items-start space-x-3 leading-relaxed">
@@ -990,7 +1025,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             onChange={(e) => {
                               const updated = [...pnlConfig.rules];
                               updated[idx].fromPct = parseFloat(e.target.value) || 0;
-                              onUpdatePnLConfig({ ...pnlConfig, rules: updated });
+                              updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
                           />
@@ -1002,7 +1037,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             onChange={(e) => {
                               const updated = [...pnlConfig.rules];
                               updated[idx].toPct = parseFloat(e.target.value) || 0;
-                              onUpdatePnLConfig({ ...pnlConfig, rules: updated });
+                              updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
                           />
@@ -1014,7 +1049,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             onChange={(e) => {
                               const updated = [...pnlConfig.rules];
                               updated[idx].dropPct = parseFloat(e.target.value) || 0;
-                              onUpdatePnLConfig({ ...pnlConfig, rules: updated });
+                              updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-amber-400 text-base font-bold text-center focus:border-blue-500"
                           />
@@ -1042,7 +1077,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                       { fromPct: 151, toPct: 200, dropPct: 30 },
                       { fromPct: 201, toPct: 500, dropPct: 30 }
                     ];
-                    onUpdatePnLConfig({ ...pnlConfig, rules: defaults });
+                    updatePnlRules({ ...pnlConfig, rules: defaults });
                   }}
                   className="px-3.5 py-1.5 text-sm text-slate-300 hover:text-white border border-[#1b2b44] rounded-lg hover:bg-[#121c2d] transition"
                 >
