@@ -83,21 +83,21 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigateToPage('chart')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">candlestick_chart</span>
               <span>1. Chart Lab ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('positions')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">layers</span>
               <span>3. Positions & Charts ↗</span>
             </button>
             <button
               onClick={() => onNavigateToPage('symbols')}
-              className="px-2.5 py-1 rounded-lg bg-[#0b1019] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
+              className="px-2.5 py-1 rounded-lg bg-[#171920] hover:bg-[#15233a] border border-[#172338] text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer transition"
             >
               <span className="material-symbols-outlined !text-[14px]">dataset</span>
               <span>4. Universe ↗</span>
@@ -107,7 +107,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
       </div>
 
       {/* ─── TOP SECTION: BACKTEST RUNS LIST ──────────────────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+      <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-4">
         {/* Title and Top Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -148,7 +148,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             <select
               value={exchangeFilter}
               onChange={(e) => setExchangeFilter(e.target.value)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-100 capitalize"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-100 capitalize"
             >
               <option value="all">All Exchanges</option>
               <option value="bybit">Bybit</option>
@@ -166,7 +166,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-100"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-100"
             >
               <option value="all">All Status</option>
               <option value="COMPLETED">Completed</option>
@@ -180,7 +180,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             <select
               value={modeFilter}
               onChange={(e) => setModeFilter(e.target.value as any)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-100"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-100"
             >
               <option value="all">All Runs</option>
               <option value="real">Real Backtests Only</option>
@@ -195,16 +195,16 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
               placeholder="Search run ID, strategy, group..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#070b13] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
         {/* Runs Master Table — 15-16px financial values */}
-        <div className="overflow-x-auto bg-[#070d18] border border-[#172338] rounded-xl">
+        <div className="overflow-x-auto bg-[#171920] border border-[#172338] rounded-xl">
           <table className="w-full text-left font-mono whitespace-nowrap">
             <thead>
-              <tr className="border-b border-[#172338] text-xs text-slate-400 font-semibold uppercase tracking-wider bg-[#0a111e]">
+              <tr className="border-b border-[#172338] text-xs text-slate-400 font-semibold uppercase tracking-wider bg-[#171920]">
                 <th className="py-3 px-3 text-center">#</th>
                 <th className="py-3 px-3.5">Run ID</th>
                 <th className="py-3 px-3">Date & Time</th>
@@ -242,7 +242,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                     className={`cursor-pointer transition ${
                       isSelected
                         ? 'bg-blue-950/30 border-l-4 border-l-[#1463FF]'
-                        : 'hover:bg-[#0c1424]/50'
+                        : 'hover:bg-[#171920]/50'
                     }`}
                   >
                     <td className="py-3 px-3 text-center text-slate-500">
@@ -309,7 +309,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                           <button
                             onClick={() => onCloneSettingsToBacktest(r)}
                             title="Load settings & re-test"
-                            className="p-1.5 rounded-lg bg-[#09111e] hover:bg-blue-600/30 text-blue-400 hover:text-white transition"
+                            className="p-1.5 rounded-lg bg-[#171920] hover:bg-blue-600/30 text-blue-400 hover:text-white transition"
                           >
                             <span className="material-symbols-outlined !text-[17px]">restart_alt</span>
                           </button>
@@ -317,21 +317,21 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                         <button
                           onClick={() => handleExport(r.id, 'json')}
                           title="Export JSON report"
-                          className="p-1.5 rounded-lg bg-[#09111e] hover:bg-[#15233a] text-slate-300 hover:text-white transition"
+                          className="p-1.5 rounded-lg bg-[#171920] hover:bg-[#15233a] text-slate-300 hover:text-white transition"
                         >
                           <span className="material-symbols-outlined !text-[17px]">download</span>
                         </button>
                         <button
                           onClick={() => handleExport(r.id, 'csv')}
                           title="Export CSV trades log"
-                          className="p-1.5 rounded-lg bg-[#09111e] hover:bg-[#15233a] text-slate-300 hover:text-white transition"
+                          className="p-1.5 rounded-lg bg-[#171920] hover:bg-[#15233a] text-slate-300 hover:text-white transition"
                         >
                           <span className="material-symbols-outlined !text-[17px]">table_view</span>
                         </button>
                         <button
                           onClick={() => onDeleteRun(r.id)}
                           title="Delete run"
-                          className="p-1.5 rounded-lg bg-[#09111e] hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
+                          className="p-1.5 rounded-lg bg-[#171920] hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
                         >
                           <span className="material-symbols-outlined !text-[17px]">delete</span>
                         </button>
@@ -347,7 +347,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
 
       {/* ─── BOTTOM SECTION: SELECTED BACKTEST DETAILS ──────────────────── */}
       {activeRun && (
-        <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+        <section className="bg-[#171920] border border-[#172338] rounded-xl p-4 space-y-4">
           {/* Header Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#142033]">
             <div className="flex items-center space-x-3">
@@ -371,7 +371,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
             </div>
 
             {/* Sub-tabs inside Details */}
-            <div className="flex items-center bg-[#070b13] p-1.5 rounded-xl border border-[#1a2436] space-x-1.5">
+            <div className="flex items-center bg-[#171920] p-1.5 rounded-xl border border-[#1a2436] space-x-1.5">
               <button
                 onClick={() => setDetailTab('summary')}
                 className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${
@@ -437,21 +437,21 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
 
             return (
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Initial Capital</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-white font-mono mt-1 block tabular-nums">
                     ${initialCapital.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Final Balance</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-white font-mono mt-1 block tabular-nums">
                     ${finalBalance.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Net Profit ($)</span>
                   <span
                     className={`text-xl sm:text-2xl font-extrabold font-mono mt-1 block tabular-nums ${
@@ -462,7 +462,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">ROI (%)</span>
                   <span
                     className={`text-xl sm:text-2xl font-extrabold font-mono mt-1 block tabular-nums ${
@@ -473,28 +473,28 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Win Rate</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-[#0BBA74] font-mono mt-1 block tabular-nums">
                     {winRate.toFixed(1)}%
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Max Drawdown</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-rose-400 font-mono mt-1 block tabular-nums">
                     -{Math.abs(maxDd).toFixed(1)}%
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Completed Cycles</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-amber-300 font-mono mt-1 block tabular-nums">
                     {completedCycles}
                   </span>
                 </div>
 
-                <div className="bg-[#070d18] border border-[#152236] rounded-xl p-3 text-center">
+                <div className="bg-[#171920] border border-[#152236] rounded-xl p-3 text-center">
                   <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Profit Factor</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-cyan-400 font-mono mt-1 block tabular-nums">
                     {profitFactor.toFixed(2)}
@@ -508,7 +508,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
           {detailTab === 'summary' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 animate-fadeIn">
               {/* Left Column: Metadata and cycle summaries */}
-              <div className="lg:col-span-4 bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3 text-sm">
+              <div className="lg:col-span-4 bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3 text-sm">
                 <h4 className="font-bold text-slate-200 border-b border-[#142033] pb-2 text-base">
                   Run Configuration & Universe
                 </h4>
@@ -542,7 +542,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                 <h4 className="font-bold text-slate-200 border-b border-[#142033] pt-3 pb-2 text-base">
                   Simulation Execution Logs
                 </h4>
-                <div className="bg-[#05080f] rounded-lg p-3 text-xs font-mono text-slate-300 max-h-40 overflow-y-auto space-y-1.5">
+                <div className="bg-[#171920] rounded-lg p-3 text-xs font-mono text-slate-300 max-h-40 overflow-y-auto space-y-1.5">
                   {(activeRun.logs || []).map((log, i) => (
                     <div key={i} className="leading-tight">
                       • {log}
@@ -552,7 +552,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
               </div>
 
               {/* Right Column: Visual Equity Curve */}
-              <div className="lg:col-span-8 bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3">
+              <div className="lg:col-span-8 bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#0BBA74] !text-lg">trending_up</span>
@@ -563,7 +563,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                   </span>
                 </div>
 
-                <div className="h-64 w-full relative flex items-center justify-center bg-[#050912] rounded-xl p-2 border border-[#121c2d]">
+                <div className="h-64 w-full relative flex items-center justify-center bg-[#171920] rounded-xl p-2 border border-[#121c2d]">
                   {(activeRun.equityCurve || []).length > 1 ? (
                     <svg className="w-full h-full overflow-visible" viewBox="0 0 600 200" preserveAspectRatio="none">
                       <line x1="0" y1="50" x2="600" y2="50" stroke="#131c2b" strokeWidth="1" />
@@ -636,7 +636,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
 
           {/* Sub-Tab 3: Trades Log with 15-16px Table Values */}
           {detailTab === 'trades' && (
-            <div className="bg-[#070d18] border border-[#152236] rounded-xl p-4 space-y-3 animate-fadeIn">
+            <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3 animate-fadeIn">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h4 className="text-sm font-bold text-slate-200">
                   Simulated Trade Executions ({activeRun.trades.length} positions)
@@ -647,12 +647,12 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                     placeholder="Filter symbol..."
                     value={tradeSearch}
                     onChange={(e) => setTradeSearch(e.target.value)}
-                    className="bg-[#09111e] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500"
+                    className="bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500"
                   />
                   <select
                     value={tradeFilterReason}
                     onChange={(e) => setTradeFilterReason(e.target.value)}
-                    className="bg-[#09111e] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100"
+                    className="bg-[#171920] border border-[#19273c] rounded-lg px-3 py-1.5 text-sm text-slate-100"
                   >
                     <option value="all">All Exit Reasons</option>
                     <option value="PNL_DROP_FLOOR">PnL Drop Floor</option>
@@ -690,7 +690,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
                       .map((t) => {
                         const isWin = t.pnlUsdt > 0;
                         return (
-                          <tr key={t.id} className="hover:bg-[#0c1424]/40">
+                          <tr key={t.id} className="hover:bg-[#171920]/40">
                             <td className="py-2.5 px-3 text-slate-400 font-semibold">{t.id}</td>
                             <td className="py-2.5 px-3 font-bold text-white text-base">{t.symbol}</td>
                             <td className="py-2.5 px-2 text-center">
@@ -741,7 +741,7 @@ export const BacktestResultsPage: React.FC<BacktestResultsPageProps> = ({
       {/* ─── COMPARISON MODAL ────────────────────────────────────────────── */}
       {showCompareModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0d131f] border border-[#1e2838] rounded-2xl max-w-5xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#171920] border border-[#1e2838] rounded-2xl max-w-5xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#18263c] pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-purple-400">compare_arrows</span>
