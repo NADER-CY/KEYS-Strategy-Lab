@@ -57,8 +57,6 @@ function calculateSelectedSignals(
 }
 
 export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
-  activeStrategy,
-  onStrategyChange,
   onSaveConfig,
   onLoadConfig,
   onResetConfig,
@@ -469,18 +467,32 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           Strategy Controls
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="strategy-profile" className="text-xs font-medium text-slate-400">Strategy:</label>
+          <label htmlFor="strategy-profile" className="text-xs font-medium text-slate-400">Indicator on chart:</label>
           <select
             id="strategy-profile"
-            value={activeStrategy}
-            onChange={(e) => onStrategyChange(e.target.value)}
-            className="bg-[#171920] border border-[#243044] rounded-lg px-3 py-2 text-sm font-semibold text-slate-200 focus:outline-none focus:border-[#1463FF] max-w-[210px]"
+            value={activeIndicator.id}
+            onChange={(e) => {
+              const found = indicators.find((indicator) => indicator.id === e.target.value);
+              if (found) onSelectIndicator(found);
+            }}
+            className="bg-[#171920] border border-[#243044] rounded-lg px-3 py-2 text-sm font-semibold text-slate-200 focus:outline-none focus:border-[#1463FF] max-w-[245px]"
           >
-            <option value="KEYS v6 Liquidity Trap & SAR">KEYS v6 Liquidity Trap</option>
-            <option value="KEYS v1 Trend & Momentum">KEYS v1 Trend & Momentum</option>
-            <option value="Dynamic VWAP Bands">Dynamic VWAP Bands</option>
-            <option value="Custom Pine Script">Custom Pine Script</option>
+            {indicators.map((indicator) => (
+              <option key={indicator.id} value={indicator.id}>{indicator.name}</option>
+            ))}
           </select>
+          {activeIndicator.id !== 'keys_v6' && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!window.confirm(`Delete indicator "${activeIndicator.name}"?`)) return;
+                try { await onDeleteIndicator(activeIndicator.id); }
+                catch (error: any) { alert(error?.message || 'Unable to delete indicator'); }
+              }}
+              className="rounded-lg border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-400 hover:bg-rose-500/10"
+              title="Delete selected indicator"
+            >Delete Indicator</button>
+          )}
           <button type="button" onClick={openSaveDialog} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
             <span className="material-symbols-outlined !text-[16px]">save</span>Save
           </button>
@@ -1063,7 +1075,34 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               </div>
             </div>
 
-            {/* Inputs grouped into 3 clean columns */}
+            {activeIndicator.id !== 'keys_v6' ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {activeIndicator.params.map((param) => (
+                  <label key={param.name} className="flex flex-col gap-2 rounded-xl border border-[#152236] bg-[#171920] p-4 text-sm text-slate-200">
+                    <span className="font-semibold">{param.title || param.name}</span>
+                    {param.type === 'bool' ? (
+                      <input
+                        type="checkbox"
+                        checked={Boolean(localParams[param.name] ?? param.value)}
+                        onChange={(event) => setLocalParams((prev) => ({ ...prev, [param.name]: event.target.checked }))}
+                        className="h-5 w-5 accent-blue-600"
+                      />
+                    ) : (
+                      <input
+                        type={param.type === 'string' ? 'text' : 'number'}
+                        step={param.type === 'float' ? 'any' : param.type === 'int' ? 1 : undefined}
+                        value={String(localParams[param.name] ?? param.value)}
+                        onChange={(event) => setLocalParams((prev) => ({ ...prev, [param.name]: param.type === 'string' ? event.target.value : Number(event.target.value) }))}
+                        className="w-full rounded-lg border border-[#19273c] bg-[#171920] px-3 py-2 font-mono text-base text-white"
+                      />
+                    )}
+                    <span className="font-mono text-xs text-slate-500">{param.name}</span>
+                  </label>
+                ))}
+                {activeIndicator.params.length === 0 && <p className="text-sm text-slate-400">This indicator declares no adjustable inputs.</p>}
+              </div>
+            ) : (
+            /* Inputs grouped into 3 clean columns for the built-in KEYS indicator */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Group 1: General & Wick & Volume */}
               <div className="bg-[#171920] border border-[#152236] rounded-xl p-4 space-y-3">
@@ -1240,6 +1279,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </div>
               </div>
             </div>
+            )}
           </div>
         )}
 
