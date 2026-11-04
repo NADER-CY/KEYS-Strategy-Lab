@@ -318,26 +318,24 @@ export default function App() {
       <Header
         currentPage={currentPage}
         onPageChange={navigatePage}
-        activeStrategy={activeStrategyName}
-        onStrategyChange={(s) => {
-          setActiveStrategyName(s);
-          const found = indicators.find((ind) => ind.name.toLowerCase().includes(s.toLowerCase()));
-          if (found) setActiveIndicator(found);
-        }}
-        isRunning={isBacktestRunning}
-        onSaveConfig={() => alert('Strategy configuration saved to persistent lab profile.')}
-        onLoadConfig={() => alert('Strategy configuration profile restored.')}
-        onResetConfig={() => {
-          if (confirm('Reset strategy lab settings to defaults?')) {
-            window.location.reload();
-          }
-        }}
+
       />
 
       {/* ─── MAIN CONTENT VIEW (EXACTLY 4 PAGES, NO LEFT SIDEBAR) ────────── */}
       <main className="flex-1 max-w-[1850px] w-full mx-auto p-3 sm:p-4">
         {currentPage === 'chart' && (
           <ChartBacktestPage
+            activeStrategy={activeStrategyName}
+            onStrategyChange={(s) => {
+              setActiveStrategyName(s);
+              const found = indicators.find((ind) => ind.name.toLowerCase().includes(s.toLowerCase()));
+              if (found) setActiveIndicator(found);
+            }}
+            onSaveConfig={() => alert('Strategy configuration saved to persistent lab profile.')}
+            onLoadConfig={() => alert('Strategy configuration profile restored.')}
+            onResetConfig={() => {
+              if (confirm('Reset strategy lab settings to defaults?')) window.location.reload();
+            }}
             portfolioConfig={portfolioConfig}
             onUpdatePortfolioConfig={setPortfolioConfig}
             pnlConfig={pnlConfig}
