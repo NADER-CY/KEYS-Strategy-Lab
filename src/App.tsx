@@ -182,7 +182,7 @@ export default function App() {
     overrideConfig?: PortfolioConfig,
     overrideIndicatorParams?: Record<string, any>
   ) => {
-    const configToUse = overrideConfig || portfolioConfig;
+    const configToUse = { ...(overrideConfig || portfolioConfig), marginMode: 'cross' as const };
     const paramsToUse =
       overrideIndicatorParams ||
       activeIndicator.params.reduce((acc, p) => ({ ...acc, [p.name]: p.value }), {});
