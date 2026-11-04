@@ -734,6 +734,25 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-slate-300">Signal Direction</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      ['buy', 'Buy Only'],
+                      ['sell', 'Sell Only'],
+                      ['both', 'Buy & Sell']
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => onUpdatePortfolioConfig({ ...portfolioConfig, signalSide: value })}
+                        aria-pressed={(portfolioConfig.signalSide || 'both') === value}
+                        className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${(portfolioConfig.signalSide || 'both') === value ? 'border-[#1463FF] bg-[#1463FF] text-white' : 'border-[#19273c] bg-[#171920] text-slate-300 hover:border-[#1463FF]'}`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
 
               {/* Column 2: Capital, Sizing & Margin Allocation */}
