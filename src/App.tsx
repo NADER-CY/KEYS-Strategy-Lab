@@ -182,7 +182,9 @@ export default function App() {
     overrideConfig?: PortfolioConfig,
     overrideIndicatorParams?: Record<string, any>
   ) => {
-    const configToUse = { ...(overrideConfig || portfolioConfig), marginMode: 'cross' as const };
+    const selectedConfig = overrideConfig || portfolioConfig;
+    const selectedGroup = savedGroups.find((group) => group.id === selectedConfig.savedGroupId);
+    const configToUse = { ...selectedConfig, exchange: selectedGroup?.exchange || selectedConfig.exchange, marginMode: 'cross' as const };
     const paramsToUse =
       overrideIndicatorParams ||
       activeIndicator.params.reduce((acc, p) => ({ ...acc, [p.name]: p.value }), {});
