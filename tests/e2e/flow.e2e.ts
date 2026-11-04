@@ -130,11 +130,14 @@ try {
 
   // 1. Create + name + save a new indicator.
   await page.getByRole('button', { name: 'Pine Script Tab' }).click();
-  await page.locator('textarea').fill(UT_BOT_V4);
-  page.once('dialog', (dialog) => dialog.accept('E2E UT Bot'));
-  await page.getByRole('button', { name: 'Save as New Indicator' }).click();
-  await page.getByText("Saved 'E2E UT Bot'").waitFor({ timeout: 10_000 });
-  step('Indicator created and saved');
+  await page.getByRole('button', { name: '+ Add Indicator' }).click();
+  await page.getByPlaceholder('e.g. EMA 50').fill('E2E UT Bot');
+  await page.getByPlaceholder('Paste your Pine Script here…').fill(UT_BOT_V4);
+  await page.getByRole('button', { name: 'Save Indicator' }).click();
+  await page.getByRole('dialog', { name: 'Add Pine Script indicator' }).waitFor({ state: 'detached', timeout: 10_000 });
+  const stored = await (await fetch(`${base}/api/indicators`)).json();
+  if (!stored.some((i: any) => i.name === 'E2E UT Bot')) throw new Error('indicator not persisted on the server');
+  step('Indicator created, named and saved');
 
   // 2. It is the selected indicator.
   const selectedName = await page.locator('#strategy-profile option:checked').textContent();
