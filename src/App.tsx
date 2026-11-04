@@ -224,18 +224,20 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(group)
     });
-    if (res.ok) {
-      const saved = await res.json();
-      setSavedGroups((prev) => {
-        const idx = prev.findIndex((g) => g.id === saved.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = saved;
-          return next;
-        }
-        return [...prev, saved];
-      });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.error || `Unable to save symbol group (HTTP ${res.status})`);
     }
+    const saved = await res.json();
+    setSavedGroups((prev) => {
+      const idx = prev.findIndex((g) => g.id === saved.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      }
+      return [...prev, saved];
+    });
   };
 
   const handleDeleteGroup = async (id: string) => {
