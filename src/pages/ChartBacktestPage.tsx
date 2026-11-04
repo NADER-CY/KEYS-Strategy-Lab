@@ -629,7 +629,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
         {/* ─── TAB 1: STRATEGY & MANAGEMENT ───────────────────────────────── */}
         {activeTab === 'strategy' && (
-          <div className="space-y-4 animate-fadeIn">
+          <div className="space-y-4 animate-fadeIn border-b border-[#26303d] pb-5">
             {/* 3 Columns Configuration Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Column 1: Market & Symbol Universe */}
