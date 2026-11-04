@@ -466,7 +466,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
       {/* Compact full-width table: neutral background, no outer border or horizontal scrolling. */}
       <section className="min-w-0 w-full bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
-        <div className="text-sm font-semibold text-[#D8E2F0]">Futures Contracts</div>
+        <div className="text-sm font-semibold text-[#D8E2F0]">
+          {({ bybit: 'Bybit', binance: 'Binance', okx: 'OKX', bitget: 'Bitget', kucoin: 'KuCoin', gateio: 'Gate.io', mexc: 'MEXC' } as Record<ExchangeId, string>)[currentExchange]}
+        </div>
         {symbolsError && <div className="p-4 text-rose-400 font-semibold" role="alert">{symbolsError}</div>}
         {loadingChanges && currentExchange === 'bybit' && <div className="text-xs text-slate-400">Loading historical returns from Bybit...</div>}
         {loading ? <div className="p-8 text-center text-slate-300">Loading contracts...</div> : (
