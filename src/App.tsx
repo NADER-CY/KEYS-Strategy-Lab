@@ -51,7 +51,7 @@ export default function App() {
     cycleToDay: 7,
     backtestTimeframe: 5,
     testPeriodDays: 365,
-    maxDrawdownCutoff: 15,
+    maxDrawdownCutoff: 0,
     slippageTolerance: 0.05,
     feeTakerPct: 0.055,
     feeMakerPct: 0.02,
