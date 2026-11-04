@@ -2,8 +2,11 @@
  * Accurate Technical Analysis calculations replicating Pine Script v6 built-in functions
  */
 import { OHLCV, IndicatorSignals } from '../types';
+import { toRenkoCandles } from './renkoChart';
 
 export interface KeysIndicatorOptions {
+  candleType?: 'regular' | 'heikin_ashi' | 'renko';
+  renkoTimeframeMinutes?: number;
   length?: number; // default 200
   wick_threshold?: number; // default 0.6
   volumeSMA_Period?: number; // default 20
@@ -327,8 +330,7 @@ export function calculateKeysIndicator(
   const sarIncrement = Number(options.sarIncrement ?? 0.02);
   const sarMaximum = Number(options.sarMaximum ?? 0.2);
 
-  const n = candles.length;
-  if (n === 0) {
+  if (candles.length === 0) {
     return {
       buySignals: [],
       sellSignals: [],
@@ -340,10 +342,17 @@ export function calculateKeysIndicator(
     };
   }
 
-  // The user's TradingView AKEUSDT 15m CSV contains Heikin Ashi OHLC (its
-  // exported SELL shape is 2026-09-19 08:00 UTC). Calculate indicator signals
-  // on those same synthetic candles; execution still uses real Bybit OHLC.
-  const signalCandles = toHeikinAshiCandles(candles);
+  // The user's TradingView reference used Heikin Ashi. Preserve that default,
+  // while supporting signal calculations on ordinary or Renko candles too.
+  // Executions still use real exchange prices, never synthetic brick prices.
+  const signalCandles = options.candleType === 'regular' ? candles :
+    options.candleType === 'renko'
+      ? toRenkoCandles(candles, options.renkoTimeframeMinutes ?? 15)
+      : toHeikinAshiCandles(candles);
+  const n = signalCandles.length;
+  if (n === 0) {
+    return { buySignals: [], sellSignals: [], plots: [], sarValues: [], sarBullish: [], adxValues: [], rsiValues: [] };
+  }
   const opens = signalCandles.map((c) => c.open);
   const highs = signalCandles.map((c) => c.high);
   const lows = signalCandles.map((c) => c.low);
