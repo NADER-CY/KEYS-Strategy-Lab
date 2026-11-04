@@ -173,7 +173,14 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   // 2. Data update effect — smoothly updates candle data without destroying chart or resetting zoom
   useEffect(() => {
-    if (!chartApiRef.current || !candleSeriesRef.current || !candles || candles.length === 0) return;
+    if (!chartApiRef.current || !candleSeriesRef.current) return;
+    if (!candles || candles.length === 0) {
+      candleSeriesRef.current.setData([]);
+      plottedCandlesRef.current = [];
+      candlesRef.current = [];
+      setHoveredCandle(null);
+      return;
+    }
 
     candlesRef.current = candles;
 
@@ -290,6 +297,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       chartApiRef.current.timeScale().fitContent();
     }
   }, [candles, signals, selectedTrade, showIndicators, symbol, timeframeMinutes]);
+
+  useEffect(() => { setHoveredCandle(null); }, [symbol, timeframeMinutes]);
 
   const lastCandle = candles[candles.length - 1];
   const activeCandle = hoveredCandle || lastCandle;
