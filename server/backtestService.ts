@@ -367,6 +367,9 @@ export class BacktestService {
     let cycleExpiredWaitingBreakeven = false; // Defect fix: hold losing cycle until breakeven
 
     let openPositions: PositionTrade[] = [];
+    const fundingExcludedSymbols = new Set<string>();
+    const maxFundingCostPct = Number.isFinite(portfolioConfig.maxFundingCostPct)
+      ? Math.max(0.1, Number(portfolioConfig.maxFundingCostPct)) : 5;
     const closedTrades: PositionTrade[] = [];
     const completedCycles: CycleRecord[] = [];
     const equityCurve: EquityPoint[] = [];
@@ -476,6 +479,7 @@ export class BacktestService {
       if (queuedEntries.length > 0 && !cycleExpiredWaitingBreakeven) {
         for (const queued of queuedEntries) {
           if (openPositions.length >= portfolioConfig.maxOpenPositions) break;
+          if (fundingExcludedSymbols.has(queued.symbol)) continue;
           if (openPositions.some((p) => p.symbol === queued.symbol)) continue;
 
           const c = candleIndexMap.get(queued.symbol)?.get(curTime);
@@ -559,6 +563,28 @@ export class BacktestService {
           accountBalance -= fundingFee;
           pos.fundingPaid += fundingFee;
         }
+      }
+
+      // Emergency per-contract funding exit. Paid funding is already debited
+      // from cash above; closing realizes price PnL and the exit fee only.
+      // Affected symbols are not re-entered during this backtest, even if a
+      // later BUY/SELL indicator signal appears or the basket stays in loss.
+      const fundingExitPositions = openPositions.filter((pos) =>
+        pos.fundingPaid > 0 && pos.fundingPaid >= pos.notional * maxFundingCostPct / 100
+      );
+      if (fundingExitPositions.length > 0) {
+        const exiting = new Set(fundingExitPositions.map((pos) => pos.id));
+        for (const pos of fundingExitPositions) {
+          const exitPrice = candleIndexMap.get(pos.symbol)?.get(curTime)?.close;
+          if (!exitPrice || exitPrice <= 0) {
+            throw new Error(`Funding emergency exit requires a real candle price for ${pos.symbol} at ${curTime}`);
+          }
+          closeTrade(pos, exitPrice, curTime, 'FUNDING_EXIT');
+          fundingExcludedSymbols.add(pos.symbol);
+          run.logs.push(`[${job.currentDate}] [FUNDING EXIT] ${pos.symbol} ${pos.side}: paid funding ${pos.fundingPaid.toFixed(4)} reached ${maxFundingCostPct}% of ${pos.notional} entry notional; closed at ${exitPrice} even if losing; excluded from further entries.`);
+        }
+        openPositions = openPositions.filter((pos) => !exiting.has(pos.id));
+        queuedEntries = queuedEntries.filter((entry) => !fundingExcludedSymbols.has(entry.symbol));
       }
 
       // ─── C. MARK-TO-MARKET UNREALIZED PNL & TOTAL EQUITY ───
@@ -689,6 +715,7 @@ export class BacktestService {
         for (const sym of symbols) {
           // Skip if symbol already has an open position (one position per symbol)
           if (openPositions.some((p) => p.symbol === sym)) continue;
+          if (fundingExcludedSymbols.has(sym)) continue;
 
           const sigs = signalMap.get(sym);
           if (!sigs) continue;
