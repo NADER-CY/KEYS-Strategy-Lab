@@ -95,6 +95,7 @@ export interface PortfolioConfig {
   cycleFromDay: number; // default 1
   cycleToDay: number; // default 7
   backtestTimeframe: number; // minutes, default 5
+  testPeriodDays?: number; // historical test duration, 30–365 days
   maxDrawdownCutoff: number; // % e.g. 15
   slippageTolerance: number; // % e.g. 0.05
   feeTakerPct: number; // % e.g. 0.05
@@ -140,6 +141,8 @@ export interface PositionTrade {
   cycleIndex: number;
   adxAtEntry?: number;
   rsiAtEntry?: number;
+  entrySignalTime?: number;
+  entrySignalReason?: string;
 }
 
 export interface CycleRecord {
@@ -178,6 +181,7 @@ export interface BacktestRun {
   symbolsCount: number;
   timeframeMinutes: number;
   strategyName: string;
+  indicatorId?: string;
   testPeriodDays: number;
   startDate: string;
   endDate: string;
