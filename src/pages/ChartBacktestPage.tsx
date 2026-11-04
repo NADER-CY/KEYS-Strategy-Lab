@@ -147,6 +147,11 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     });
     return init;
   });
+  const [appliedParams, setAppliedParams] = useState<Record<string, any>>(() =>
+    Object.fromEntries(activeIndicator.params.map((param) => [param.name, param.value]))
+  );
+  const [settingsFeedback, setSettingsFeedback] = useState('');
+  const hasUnappliedChanges = JSON.stringify(localParams) !== JSON.stringify(appliedParams);
 
   // Sync editor when active indicator changes
   useEffect(() => {
@@ -156,6 +161,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       init[p.name] = p.value;
     });
     setLocalParams(init);
+    setAppliedParams(init);
+    setSettingsFeedback('');
   }, [activeIndicator.id]);
 
   // Sync symbol when initialSymbol prop changes
@@ -194,7 +201,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             recentCandles = data;
             setCandles(data);
             if (activeIndicator.id === 'keys_v6' || isUtBotAlertsScript(activeIndicator.code)) {
-              setSignals(calculateSelectedSignals(data, localParams, chartCandleType, chartTimeframe, activeIndicator.code));
+              setSignals(calculateSelectedSignals(data, appliedParams, chartCandleType, chartTimeframe, activeIndicator.code));
             }
             setLastRefreshedAt(new Date());
           }
@@ -311,9 +318,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   // including the older candles outside the live 400-bar refresh window.
   useEffect(() => {
     setSignals((activeIndicator.id === 'keys_v6' || isUtBotAlertsScript(activeIndicator.code)) && candles.length > 0
-      ? calculateSelectedSignals(candles, localParams, chartCandleType, chartTimeframe, activeIndicator.code)
+      ? calculateSelectedSignals(candles, appliedParams, chartCandleType, chartTimeframe, activeIndicator.code)
       : undefined);
-  }, [candles, localParams, chartCandleType, chartTimeframe, activeIndicator.id, activeIndicator.code]);
+  }, [candles, appliedParams, chartCandleType, chartTimeframe, activeIndicator.id, activeIndicator.code]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
@@ -343,12 +350,11 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const handleApplyToChart = () => {
     if (activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code)) {
       setSignals(undefined);
+      setSettingsFeedback('This indicator does not have an executable signal adapter.');
       return;
     }
-    if (candles.length > 0) {
-      const calculated = calculateSelectedSignals(candles, localParams, chartCandleType, chartTimeframe, activeIndicator.code);
-      setSignals(calculated);
-    }
+    setAppliedParams({ ...localParams });
+    setSettingsFeedback('✓ Applied to chart. Use Save Settings to keep these values after refresh.');
   };
 
   // Save current tuning into indicator parameters
@@ -364,10 +370,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     };
     try {
       await onSaveIndicator(updated);
-      handleApplyToChart();
-      alert('Indicator settings saved successfully. The next backtest will use these exact settings.');
+      setAppliedParams({ ...localParams });
+      setSettingsFeedback('✓ Saved permanently and applied to chart. Future backtests will use these values.');
     } catch (error: any) {
-      alert(`Indicator settings were NOT saved: ${error?.message || 'Unknown error'}`);
+      setSettingsFeedback(`✕ Settings not saved: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -1075,6 +1081,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               </div>
             </div>
 
+            <div role="status" aria-live="polite" className={`text-sm ${settingsFeedback.startsWith('✕') ? 'text-rose-400' : hasUnappliedChanges ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {hasUnappliedChanges ? 'Unsaved changes: click Apply to Chart or Save Settings.' : settingsFeedback || 'Current indicator settings are applied to the chart.'}
+            </div>
+
             {activeIndicator.id !== 'keys_v6' ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {activeIndicator.params.map((param) => (
@@ -1355,7 +1365,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => onRunBacktest({ ...localParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })}
+              onClick={() => onRunBacktest({ ...appliedParams, candleType: chartCandleType, renkoTimeframeMinutes: chartTimeframe })}
               disabled={isBacktestRunning || (activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code))}
               title={activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code) ? 'This saved Pine script needs an executable strategy adapter before backtesting.' : undefined}
               className={`px-8 py-3 rounded-xl text-base font-extrabold flex items-center space-x-2.5 transition shadow-lg ${
