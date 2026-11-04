@@ -28,6 +28,9 @@ interface CandlestickChartProps {
   onToggleLive?: () => void;
   lastUpdated?: Date | null;
   onRefresh?: () => void;
+  candleType?: 'regular' | 'heikin_ashi' | 'renko';
+  onCandleTypeChange?: (type: 'regular' | 'heikin_ashi' | 'renko') => void;
+  loading?: boolean;
 }
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({
@@ -44,7 +47,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   isLive = true,
   onToggleLive,
   lastUpdated,
-  onRefresh
+  onRefresh,
+  candleType,
+  onCandleTypeChange,
+  loading = false
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
@@ -61,6 +67,15 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [showIndicators, setShowIndicators] = useState<boolean>(showIndicatorsProp);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const exitOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFullscreen(false);
+    };
+    document.addEventListener('keydown', exitOnEscape);
+    return () => document.removeEventListener('keydown', exitOnEscape);
+  }, [isFullscreen]);
 
   const timeframes = [
     ...Array.from({ length: 12 }, (_, i) => ({ label: (i + 1) * 5 === 60 ? '1h' : `${(i + 1) * 5}m`, minutes: (i + 1) * 5 })),
@@ -83,14 +98,14 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     const container = chartContainerRef.current;
     const chart = createChart(container, {
       width: container.clientWidth,
-      height: isFullscreen ? window.innerHeight - 130 : height,
+      height: isFullscreen ? Math.max(300, window.innerHeight - 125) : height,
       layout: {
         background: { color: '#171920' },
         textColor: '#94a3b8'
       },
       grid: {
-        vertLines: { color: '#131c2b' },
-        horzLines: { color: '#131c2b' }
+        vertLines: { color: '#30394a', visible: true },
+        horzLines: { color: '#30394a', visible: true }
       },
       crosshair: {
         mode: 1,
@@ -169,7 +184,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       if (chartContainerRef.current && chartApiRef.current) {
         chartApiRef.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
-          height: isFullscreen ? window.innerHeight - 130 : height
+          height: isFullscreen ? Math.max(300, window.innerHeight - 125) : height
         });
       }
     };
@@ -343,7 +358,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   return (
     <div
       className={`relative bg-[#171920] border border-[#1a2436] rounded-xl overflow-hidden shadow-md flex flex-col ${
-        isFullscreen ? 'fixed inset-4 z-50 shadow-2xl' : ''
+        isFullscreen ? 'fixed inset-0 z-[100] rounded-none shadow-2xl' : ''
       }`}
     >
       {/* Top Chart Toolbar */}
@@ -401,7 +416,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         </div>
 
         {/* Right: Live Ticker Indicator, Overlay toggle, signals badge & Fullscreen */}
-        <div className="order-first flex w-full flex-wrap items-center justify-end gap-2">
+        <div className="order-first flex w-full flex-wrap items-center gap-2">
+          {loading && <span className="text-xs font-semibold text-blue-400">Loading…</span>}
           {/* Real-time live status pill */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold shadow-sm">
             <span className="relative flex h-2 w-2">
@@ -470,11 +486,23 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
             </span>
           </button>
+          {onCandleTypeChange && (
+            <div className="ml-auto flex items-center gap-1 rounded-lg border border-[#19273c] bg-[#171920] p-1">
+              {([['regular', 'Candles'], ['heikin_ashi', 'Heikin Ashi'], ['renko', 'Renko']] as const).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onCandleTypeChange(type)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${candleType === type ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'}`}
+                >{label}</button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Main Chart Area */}
-      <div className="relative flex-1 w-full flex" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : `${height}px` }}>
+      <div className="relative flex-1 w-full flex" style={{ height: isFullscreen ? 'calc(100dvh - 125px)' : `${height}px` }}>
         {/* Lightweight Charts Canvas Container */}
         <div ref={chartContainerRef} className="flex-1 w-full h-full" />
 
