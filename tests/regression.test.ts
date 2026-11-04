@@ -283,10 +283,15 @@ await test('Stop request mid-simulation is honoured and saved as STOPPED (not CO
   const groupId = 'stop_group';
   storageService.saveGroup({ id: groupId, name: groupId, exchange: 'bybit', symbols: ['S1USDT', 'S2USDT', 'S3USDT'], createdAt: '', updatedAt: '' });
   const id = await bt.runBacktest(baseConfig({ savedGroupId: groupId, testPeriodDays: 365 }), PNL, UT_PARAMS, 't', 'ut_test');
-  // Wait until the time loop has started, then stop.
-  while ((bt.getActiveJob(id)?.progress ?? 0) < 26) await new Promise((r) => setTimeout(r, 1));
+  // Wait until the time loop has started (progress > 40), then stop.
+  const deadline = Date.now() + 60_000;
+  while ((bt.getActiveJob(id)?.progress ?? 0) <= 41) {
+    if (Date.now() > deadline) throw new Error('simulation loop never started');
+    await new Promise((r) => setTimeout(r, 1));
+  }
   assert.equal(bt.stopJob(id), true);
-  while (bt.getActiveJob(id)!.progress < 100 && bt.getActiveJob(id)!.run.logs.every((l) => !l.includes('STOPPED by user'))) {
+  while (bt.getActiveJob(id)!.run.logs.every((l) => !l.includes('STOPPED by user'))) {
+    if (Date.now() > deadline) throw new Error('stop was not honoured');
     await new Promise((r) => setTimeout(r, 5));
   }
   const run = storageService.getBacktestRunById(id)!;
