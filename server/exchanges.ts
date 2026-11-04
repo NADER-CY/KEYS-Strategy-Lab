@@ -604,7 +604,11 @@ export class ExchangeDataService {
   ): Promise<OHLCV[]> {
     let collected: OHLCV[] = [];
     let endTimeMs = Date.now();
-    const maxPages = Math.min(15, Math.ceil(targetCount / 200) + 1);
+    // A year of 5m candles needs ~106 Bybit pages. The old 15-page ceiling
+    // silently truncated long backtests to only a few weeks.
+    const pageCapacity = exchangeId === 'bybit' ? 1000 : exchangeId === 'binance' ? 1500 :
+      (exchangeId === 'okx' || exchangeId === 'bitget' ? 100 : 500);
+    const maxPages = Math.min(1200, Math.ceil(targetCount / pageCapacity) + 2);
 
     for (let page = 0; page < maxPages; page++) {
       if (collected.length >= targetCount) break;
