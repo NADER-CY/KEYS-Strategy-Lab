@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KEYS / Bybit Strategy Lab — Symbol Universe</title>
+<!-- Tailwind CSS v3 with forms and container-queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Custom Configuration -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: {
+              950: '#04070c',
+              900: '#070b12',
+              850: '#0b101b',
+              800: '#0f172a',
+              700: '#151f32',
+              600: '#1e293b'
+            },
+            electric: {
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0066ff',
+              700: '#0052cc'
+            },
+            accent: {
+              green: '#10b981',
+              emerald: '#059669',
+              gold: '#f59e0b',
+              rose: '#f43f5e'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
+          },
+          boxShadow: {
+            'glow-cyan': '0 0 16px -2px rgba(56, 189, 248, 0.35)',
+            'glow-blue': '0 0 20px -3px rgba(0, 102, 255, 0.45)',
+            'glow-chip': '0 0 10px rgba(2, 132, 199, 0.25)',
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Styles for Scrollbars and Glow Effects -->
+<style data-purpose="custom-styling">
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070b12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+    .custom-glow-tab {
+      box-shadow: 0 0 15px rgba(0, 102, 255, 0.5), inset 0 0 8px rgba(56, 189, 248, 0.3);
+    }
+    .grid-chip-scroll {
+      max-height: 480px;
+    }
+  </style>
+</head>
+<body class="bg-obsidian-950 text-slate-200 font-sans antialiased min-h-screen selection:bg-electric-600 selection:text-white">
+<!-- BEGIN: MainHeader -->
+<header class="w-full bg-obsidian-900 border-b border-obsidian-600/80 sticky top-0 z-50 px-6 py-2.5">
+<div class="max-w-[1780px] mx-auto flex items-center justify-between gap-4">
+<!-- Brand & Title Block -->
+<div class="flex items-center space-x-3.5 shrink-0">
+<div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-obsidian-950 font-black text-xl">
+<!-- Golden Key Symbol -->
+<svg class="w-5 h-5 fill-obsidian-950" viewbox="0 0 24 24">
+<path d="M7 14C5.9 14 5 13.1 5 12C5 10.9 5.9 10 7 10C8.1 10 9 10.9 9 12C9 13.1 8.1 14 7 14M12.6 10C11.8 7.6 9.6 6 7 6C3.7 6 1 8.7 1 12C1 15.3 3.7 18 7 18C9.6 18 11.8 16.4 12.6 14H16V18H20V14H23V10H12.6Z"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-2">
+<span class="text-white font-black tracking-wider text-base">KEYS</span>
+<span class="text-slate-600 text-sm">/</span>
+<span class="text-sky-400 font-semibold text-sm tracking-wide">Bybit Strategy Lab</span>
+</div>
+<p class="text-[11px] text-slate-400 font-normal">Advanced Backtest • Strategy • Pine Script</p>
+</div>
+</div>
+<!-- Navigation Horizontal Pill Tabs -->
+<nav class="flex items-center bg-obsidian-850 p-1 rounded-xl border border-obsidian-600/60 shadow-inner">
+<a class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-obsidian-700/60 transition-all flex items-center gap-1.5" href="#chart-backtest">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Chart &amp; Backtest
+        </a>
+<a class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-obsidian-700/60 transition-all flex items-center gap-1.5" href="#backtest-results">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Backtest Results
+        </a>
+<a class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-obsidian-700/60 transition-all flex items-center gap-1.5" href="#positions-charts">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Positions &amp; Charts
+        </a>
+<!-- ACTIVE TAB: Symbol Universe -->
+<a class="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-electric-600 custom-glow-tab border border-sky-400/40 flex items-center gap-1.5" href="#symbol-universe">
+<svg class="w-3.5 h-3.5 text-sky-200" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Symbol Universe
+        </a>
+</nav>
+<!-- Right Header Actions & Status Indicator -->
+<div class="flex items-center space-x-3 shrink-0">
+<!-- Status Indicator Pill -->
+<div class="flex items-center space-x-1.5 px-3 py-1 bg-emerald-950/60 border border-emerald-500/30 rounded-full text-[11px] font-semibold text-emerald-400 shadow-sm">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span>Ready</span>
+</div>
+<div class="h-4 w-[1px] bg-obsidian-600"></div>
+<!-- Action Icon Buttons -->
+<div class="flex items-center space-x-1">
+<!-- Save Floppy -->
+<button class="w-8 h-8 rounded-lg bg-obsidian-850 hover:bg-obsidian-700 text-slate-300 hover:text-white border border-obsidian-600/70 flex items-center justify-center transition-colors" title="Quick Save Universe">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<!-- Files / Export -->
+<button class="w-8 h-8 rounded-lg bg-obsidian-850 hover:bg-obsidian-700 text-slate-300 hover:text-white border border-obsidian-600/70 flex items-center justify-center transition-colors" title="Saved Group Files">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<!-- Notifications -->
+<button class="w-8 h-8 rounded-lg bg-obsidian-850 hover:bg-obsidian-700 text-slate-300 hover:text-white border border-obsidian-600/70 flex items-center justify-center transition-colors relative" title="Notifications">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-sky-400 rounded-full"></span>
+</button>
+<!-- Settings Gear -->
+<button class="w-8 h-8 rounded-lg bg-obsidian-850 hover:bg-obsidian-700 text-slate-300 hover:text-white border border-obsidian-600/70 flex items-center justify-center transition-colors" title="Settings">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="max-w-[1780px] mx-auto px-6 py-5 space-y-5" data-purpose="universe-page-container">
+<!-- ========================================== -->
+<!-- SECTION 1: FILTER & GROUP CONTROLS -->
+<!-- ========================================== -->
+<!-- BEGIN: FilterAndGroupControls -->
+<section class="bg-obsidian-850/95 border border-obsidian-600/80 rounded-2xl p-5 shadow-xl backdrop-blur-md" data-purpose="filter-and-controls">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+<!-- Left Column: Exchange & Saved Symbol Group Dropdowns (4 cols) -->
+<div class="lg:col-span-4 space-y-3.5 border-b lg:border-b-0 lg:border-r border-obsidian-600/70 pb-4 lg:pb-0 lg:pr-6">
+<div class="flex items-center space-x-2 text-sky-400 text-xs font-semibold uppercase tracking-wider">
+<svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>Exchange &amp; Saved Symbol Groups</span>
+</div>
+<!-- Dropdowns Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<!-- Exchange Dropdown -->
+<div>
+<label class="block text-[11px] font-medium text-slate-400 mb-1" for="exchange-select">Exchange</label>
+<div class="relative">
+<select class="w-full bg-obsidian-900 border border-obsidian-600 hover:border-slate-500 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 appearance-none pr-8" id="exchange-select">
+<option selected="" value="bybit">Bybit Perpetual</option>
+<option value="binance">Binance Futures</option>
+<option value="okx">OKX Swap</option>
+<option value="bitget">Bitget USDT-M</option>
+<option value="kucoin">KuCoin Futures</option>
+<option value="gateio">Gate.io Perps</option>
+<option value="mexc">MEXC Futures</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+</div>
+</div>
+<!-- Saved Symbol Group Dropdown -->
+<div>
+<label class="block text-[11px] font-medium text-slate-400 mb-1" for="group-select">Saved Symbol Group</label>
+<div class="relative">
+<select class="w-full bg-obsidian-900 border border-obsidian-600 hover:border-slate-500 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 appearance-none pr-8" id="group-select">
+<option selected="" value="tab-1">Bybit — Tab 1 (1–100 Symbols)</option>
+<option value="tab-2">Bybit — Tab 2 (101–200 Symbols)</option>
+<option value="tab-3">Bybit — Tab 3 (201–300 Symbols)</option>
+<option value="top-defi">Bybit — Top DeFi Universe</option>
+<option value="high-vol">Bybit — High Volatility 50</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center Column: Symbol Batch Groups Tabs (5 cols) -->
+<div class="lg:col-span-5 space-y-2.5 border-b lg:border-b-0 lg:border-r border-obsidian-600/70 pb-4 lg:pb-0 lg:pr-6">
+<div class="flex items-center justify-between">
+<span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Symbol Batch Groups</span>
+<span class="text-[10px] text-sky-400 font-mono">100 Symbols per Tab</span>
+</div>
+<!-- Horizontal Batch Tabs -->
+<div class="flex items-center gap-1.5 p-1 bg-obsidian-900/90 rounded-xl border border-obsidian-600/70">
+<!-- Active Tab 1 -->
+<button class="flex-1 py-1.5 px-2 rounded-lg bg-electric-600 text-white font-bold text-xs shadow-glow-blue border border-sky-400/50 flex flex-col items-center">
+<span>Tab 1</span>
+<span class="text-[10px] text-sky-200 font-normal font-mono">1–100</span>
+</button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 font-medium text-xs transition-colors flex flex-col items-center">
+<span>Tab 2</span>
+<span class="text-[10px] text-slate-500 font-normal font-mono">101–200</span>
+</button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 font-medium text-xs transition-colors flex flex-col items-center">
+<span>Tab 3</span>
+<span class="text-[10px] text-slate-500 font-normal font-mono">201–300</span>
+</button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 font-medium text-xs transition-colors flex flex-col items-center">
+<span>Tab 4</span>
+<span class="text-[10px] text-slate-500 font-normal font-mono">301–400</span>
+</button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-800 font-medium text-xs transition-colors flex flex-col items-center">
+<span>Tab 5</span>
+<span class="text-[10px] text-slate-500 font-normal font-mono">401–500</span>
+</button>
+</div>
+<!-- Helper Note -->
+<div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
+<svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="truncate">Backtests will run only on symbols saved in the selected exchange and active tab group.</span>
+</div>
+</div>
+<!-- Right Column: Stats Pills & Save Button (3 cols) -->
+<div class="lg:col-span-3 flex flex-col justify-between space-y-3">
+<!-- 4 Compact Stat Pills -->
+<div class="grid grid-cols-2 gap-2">
+<div class="bg-obsidian-900 border border-obsidian-600/80 rounded-lg px-2.5 py-1.5">
+<div class="text-[10px] text-slate-400 uppercase tracking-tight">Exchange Symbols</div>
+<div class="text-xs font-bold text-white font-mono">815</div>
+</div>
+<div class="bg-obsidian-900 border border-sky-500/40 rounded-lg px-2.5 py-1.5 shadow-sm">
+<div class="text-[10px] text-sky-300 uppercase tracking-tight">Active Tab Selected</div>
+<div class="text-xs font-black text-emerald-400 font-mono">50</div>
+</div>
+<div class="bg-obsidian-900 border border-obsidian-600/80 rounded-lg px-2.5 py-1.5">
+<div class="text-[10px] text-slate-400 uppercase tracking-tight">Total Saved</div>
+<div class="text-xs font-bold text-slate-200 font-mono">100</div>
+</div>
+<div class="bg-obsidian-900 border border-obsidian-600/80 rounded-lg px-2.5 py-1.5">
+<div class="text-[10px] text-slate-400 uppercase tracking-tight">Max Concurrent</div>
+<div class="text-xs font-bold text-amber-400 font-mono">100</div>
+</div>
+</div>
+<!-- Save Selection Button -->
+<button class="w-full bg-gradient-to-r from-blue-600 to-electric-600 hover:from-blue-500 hover:to-electric-500 text-white font-semibold text-xs py-2 px-4 rounded-xl shadow-glow-blue flex items-center justify-center space-x-2 transition-all">
+<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+<span>Save Selection</span>
+</button>
+</div>
+</div>
+</section>
+<!-- END: FilterAndGroupControls -->
+<!-- ========================================== -->
+<!-- SECTION 2: SYMBOL SELECTION PANEL -->
+<!-- ========================================== -->
+<!-- BEGIN: SymbolSelectionPanel -->
+<section class="bg-obsidian-850/95 border border-obsidian-600/80 rounded-2xl p-5 shadow-xl" data-purpose="symbol-selection-matrix">
+<!-- Panel Top Bar: Search and Quick Batch Selectors -->
+<div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-obsidian-600/60">
+<!-- Title and Category Indicators -->
+<div class="flex items-center space-x-3">
+<div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-400/30 flex items-center justify-center text-sky-400">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<h2 class="text-sm font-bold text-white tracking-wide">Select Symbols</h2>
+<p class="text-[11px] text-slate-400">Check/uncheck pairs to build your target trading universe.</p>
+</div>
+</div>
+<!-- Search Bar and Action Buttons -->
+<div class="flex items-center flex-wrap gap-2.5">
+<!-- Search Input -->
+<div class="relative w-56">
+<input class="w-full bg-obsidian-900 border border-obsidian-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-mono" placeholder="Search symbols…" type="text"/>
+<span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</span>
+</div>
+<!-- Select All / Clear All / Show Selected Only Buttons -->
+<button class="px-3 py-1.5 bg-obsidian-900 hover:bg-obsidian-700 border border-obsidian-600 rounded-lg text-xs font-semibold text-slate-200 transition-colors">Select All</button>
+<button class="px-3 py-1.5 bg-obsidian-900 hover:bg-obsidian-700 border border-obsidian-600 rounded-lg text-xs font-semibold text-slate-200 transition-colors">Clear All</button>
+<button class="px-3 py-1.5 bg-obsidian-900 hover:bg-sky-950/40 border border-sky-500/40 text-sky-400 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Show Selected Only
+          </button>
+</div>
+</div>
+<!-- Checklist Chip Matrix (Dense 5-6 column grid) -->
+<div class="py-4 overflow-y-auto grid-chip-scroll pr-1">
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+<!-- Selected Chip 1: BTC -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px]">₿</div>
+<span class="text-xs font-bold text-white font-mono">BTCUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 2: ETH -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-[10px]">Ξ</div>
+<span class="text-xs font-bold text-white font-mono">ETHUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 3: SOL -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-[10px]">◎</div>
+<span class="text-xs font-bold text-white font-mono">SOLUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 4: BNB -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold text-[10px]">B</div>
+<span class="text-xs font-bold text-white font-mono">BNBUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 5: XRP -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-400/20 text-slate-300 flex items-center justify-center font-bold text-[10px]">✕</div>
+<span class="text-xs font-bold text-white font-mono">XRPUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-600">Pay</span>
+</label>
+<!-- Selected Chip 6: DOGE -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-yellow-500/20 text-yellow-300 flex items-center justify-center font-bold text-[10px]">Ð</div>
+<span class="text-xs font-bold text-white font-mono">DOGEUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/20">Meme</span>
+</label>
+<!-- Selected Chip 7: ADA -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-[10px]">₳</div>
+<span class="text-xs font-bold text-white font-mono">ADAUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 8: AVAX -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center font-bold text-[10px]">▲</div>
+<span class="text-xs font-bold text-white font-mono">AVAXUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 9: LINK -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center font-bold text-[10px]">⬡</div>
+<span class="text-xs font-bold text-white font-mono">LINKUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">DeFi</span>
+</label>
+<!-- Selected Chip 10: SUI -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-[10px]">💧</div>
+<span class="text-xs font-bold text-white font-mono">SUIUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 11: APT -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-[10px]">A</div>
+<span class="text-xs font-bold text-white font-mono">APTUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 12: NEAR -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[10px]">N</div>
+<span class="text-xs font-bold text-white font-mono">NEARUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20">AI</span>
+</label>
+<!-- Selected Chip 13: ARB -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-[10px]">⬢</div>
+<span class="text-xs font-bold text-white font-mono">ARBUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/20">L2</span>
+</label>
+<!-- Selected Chip 14: OP -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-red-600/20 text-red-400 flex items-center justify-center font-bold text-[10px]">🔴</div>
+<span class="text-xs font-bold text-white font-mono">OPUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/20">L2</span>
+</label>
+<!-- Selected Chip 15: INJ -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-[10px]">🥷</div>
+<span class="text-xs font-bold text-white font-mono">INJUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">DeFi</span>
+</label>
+<!-- Selected Chip 16: FET -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-[10px]">⚡</div>
+<span class="text-xs font-bold text-white font-mono">FETUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20">AI</span>
+</label>
+<!-- Selected Chip 17: RENDER -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center font-bold text-[10px]">R</div>
+<span class="text-xs font-bold text-white font-mono">RNDRUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/20">AI</span>
+</label>
+<!-- Selected Chip 18: TIA -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center font-bold text-[10px]">T</div>
+<span class="text-xs font-bold text-white font-mono">TIAUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 19: SEI -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold text-[10px]">S</div>
+<span class="text-xs font-bold text-white font-mono">SEIUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 20: DOT -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-pink-500/20 text-pink-300 flex items-center justify-center font-bold text-[10px]">●</div>
+<span class="text-xs font-bold text-white font-mono">DOTUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 21: TRX -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center font-bold text-[10px]">T</div>
+<span class="text-xs font-bold text-white font-mono">TRXUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 22: MATIC -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-purple-600/20 text-purple-300 flex items-center justify-center font-bold text-[10px]">⬡</div>
+<span class="text-xs font-bold text-white font-mono">MATICUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/20">L2</span>
+</label>
+<!-- Selected Chip 23: UNI -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-pink-500/20 text-pink-300 flex items-center justify-center font-bold text-[10px]">🦄</div>
+<span class="text-xs font-bold text-white font-mono">UNIUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">DeFi</span>
+</label>
+<!-- Selected Chip 24: AAVE -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-[10px]">👻</div>
+<span class="text-xs font-bold text-white font-mono">AAVEUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">DeFi</span>
+</label>
+<!-- Selected Chip 25: PEPE -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">🐸</div>
+<span class="text-xs font-bold text-white font-mono">1000PEPE</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/20">Meme</span>
+</label>
+<!-- Selected Chip 26: SHIB -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-[10px]">🐕</div>
+<span class="text-xs font-bold text-white font-mono">SHIBUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/20">Meme</span>
+</label>
+<!-- Selected Chip 27: TON -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-[10px]">💎</div>
+<span class="text-xs font-bold text-white font-mono">TONUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 28: KAS -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-[10px]">K</div>
+<span class="text-xs font-bold text-white font-mono">KASUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 29: ICP -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 flex items-center justify-center font-bold text-[10px]">∞</div>
+<span class="text-xs font-bold text-white font-mono">ICPUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20">L1</span>
+</label>
+<!-- Selected Chip 30: STX -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-obsidian-900 to-blue-950/40 border border-blue-500/50 shadow-glow-chip cursor-pointer hover:border-sky-400 transition-all">
+<div class="flex items-center space-x-2">
+<input checked="" class="rounded bg-obsidian-900 border-sky-500 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-[10px]">S</div>
+<span class="text-xs font-bold text-white font-mono">STXUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/20">L2</span>
+</label>
+<!-- UNSELECTED CHIP: ETC -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-950 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">E</div>
+<span class="text-xs font-medium text-slate-300 font-mono">ETCUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">L1</span>
+</label>
+<!-- UNSELECTED CHIP: FIL -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-950 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">F</div>
+<span class="text-xs font-medium text-slate-300 font-mono">FILUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Storage</span>
+</label>
+<!-- UNSELECTED CHIP: ATOM -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-950 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">⚛</div>
+<span class="text-xs font-medium text-slate-300 font-mono">ATOMUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">L1</span>
+</label>
+<!-- UNSELECTED CHIP: CRV -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-950 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">C</div>
+<span class="text-xs font-medium text-slate-300 font-mono">CRVUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">DeFi</span>
+</label>
+<!-- UNSELECTED CHIP: MKR -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-950 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">M</div>
+<span class="text-xs font-medium text-slate-300 font-mono">MKRUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">DeFi</span>
+</label>
+<!-- UNSELECTED CHIP: IMX -->
+<label class="flex items-center justify-between p-2 rounded-xl bg-obsidian-900/60 border border-obsidian-600/70 cursor-pointer hover:border-slate-500 transition-all opacity-80 hover:opacity-100">
+<div class="flex items-center space-x-2">
+<input class="rounded bg-obsidian-900 border-obsidian-600 text-electric-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5" type="checkbox"/>
+<div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">I</div>
+<span class="text-xs font-medium text-slate-300 font-mono">IMXUSDT</span>
+</div>
+<span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Gaming</span>
+</label>
+</div>
+</div>
+<!-- Panel Footer Status & Quick Actions -->
+<div class="pt-3 mt-1 border-t border-obsidian-600/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+<div class="flex items-center space-x-2">
+<div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+<span class="text-slate-400 font-medium">Selected in this tab:</span>
+<span class="font-bold text-white bg-obsidian-900 px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-400 font-mono">50 symbols</span>
+</div>
+<div class="flex items-center space-x-2">
+<span class="text-slate-500 text-[11px]">Quick Selection:</span>
+<button class="px-2.5 py-1 rounded bg-obsidian-900 hover:bg-obsidian-700 border border-obsidian-600 text-slate-300 hover:text-white transition-colors text-[11px]">Top 50</button>
+<button class="px-2.5 py-1 rounded bg-obsidian-900 hover:bg-obsidian-700 border border-obsidian-600 text-slate-300 hover:text-white transition-colors text-[11px]">Top 100</button>
+<button class="px-2.5 py-1 rounded bg-obsidian-900 hover:bg-rose-950/40 border border-rose-500/30 text-rose-400 transition-colors text-[11px]">Reset</button>
+</div>
+</div>
+</section>
+<!-- END: SymbolSelectionPanel -->
+<!-- ========================================== -->
+<!-- SECTION 3: SELECTED SYMBOLS PREVIEW -->
+<!-- ========================================== -->
+<!-- BEGIN: SelectedSymbolsPreview -->
+<section class="bg-obsidian-850/95 border border-obsidian-600/80 rounded-2xl p-5 shadow-xl" data-purpose="saved-symbols-table-preview">
+<!-- Table Header & Badge -->
+<div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-obsidian-600/60">
+<div class="flex items-center space-x-3">
+<div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<h3 class="text-sm font-bold text-white tracking-wide">Saved Symbols — Active Tab</h3>
+<p class="text-[11px] text-slate-400">Universe snapshot loaded for automated multi-pair backtesting execution.</p>
+</div>
+</div>
+<div class="flex items-center space-x-2">
+<span class="px-3 py-1 bg-emerald-950/70 border border-emerald-500/40 rounded-full text-emerald-400 font-semibold text-xs font-mono shadow-sm">
+            ● 50 Saved Symbols — Ready for Backtest
+          </span>
+</div>
+</div>
+<!-- Preview Data Table -->
+<div class="overflow-x-auto py-2">
+<table class="w-full text-left border-collapse" data-purpose="symbol-table">
+<thead>
+<tr class="border-b border-obsidian-600/70 text-[11px] uppercase tracking-wider text-slate-400">
+<th class="py-2.5 px-3 font-semibold text-center w-12">#</th>
+<th class="py-2.5 px-3 font-semibold">Symbol</th>
+<th class="py-2.5 px-3 font-semibold">Exchange</th>
+<th class="py-2.5 px-3 font-semibold">Group</th>
+<th class="py-2.5 px-3 font-semibold text-right">Last Price</th>
+<th class="py-2.5 px-3 font-semibold text-right">24h Volume</th>
+<th class="py-2.5 px-3 font-semibold text-center">Category</th>
+<th class="py-2.5 px-3 font-semibold text-center">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-obsidian-600/40 text-xs">
+<!-- Row 1: BTC -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">1</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px]">₿</span>
+<span>BTCUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$69,842.50</td>
+<td class="py-2.5 px-3 text-right text-sky-400">12.45B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20 text-[10px] font-sans">Layer 1</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 2: ETH -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">2</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">Ξ</span>
+<span>ETHUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$3,472.18</td>
+<td class="py-2.5 px-3 text-right text-sky-400">6.21B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20 text-[10px] font-sans">Layer 1</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 3: SOL -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">3</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-[10px]">◎</span>
+<span>SOLUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$168.42</td>
+<td class="py-2.5 px-3 text-right text-sky-400">2.98B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20 text-[10px] font-sans">Layer 1</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 4: BNB -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">4</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-[10px]">B</span>
+<span>BNBUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$612.60</td>
+<td class="py-2.5 px-3 text-right text-sky-400">1.87B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20 text-[10px] font-sans">Layer 1</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 5: XRP -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">5</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-slate-500/20 text-slate-300 flex items-center justify-center text-[10px]">✕</span>
+<span>XRPUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$0.6248</td>
+<td class="py-2.5 px-3 text-right text-sky-400">1.56B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-600 text-[10px] font-sans">Payments</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 6: DOGE -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">6</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-yellow-500/20 text-yellow-300 flex items-center justify-center text-[10px]">Ð</span>
+<span>DOGEUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$0.1428</td>
+<td class="py-2.5 px-3 text-right text-sky-400">2.11B</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/20 text-[10px] font-sans">Meme</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 7: AVAX -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">7</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center text-[10px]">▲</span>
+<span>AVAXUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$34.81</td>
+<td class="py-2.5 px-3 text-right text-sky-400">742.11M</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/20 text-[10px] font-sans">Layer 1</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+<!-- Row 8: LINK -->
+<tr class="hover:bg-obsidian-800/60 transition-colors font-mono">
+<td class="py-2.5 px-3 text-center text-slate-500 text-[11px]">8</td>
+<td class="py-2.5 px-3 font-bold text-white flex items-center space-x-2">
+<span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">⬡</span>
+<span>LINKUSDT</span>
+</td>
+<td class="py-2.5 px-3 text-slate-300 font-sans">Bybit</td>
+<td class="py-2.5 px-3 text-slate-400">Tab 1</td>
+<td class="py-2.5 px-3 text-right text-slate-100 font-semibold">$18.47</td>
+<td class="py-2.5 px-3 text-right text-sky-400">561.23M</td>
+<td class="py-2.5 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[10px] font-sans">DeFi</span>
+</td>
+<td class="py-2.5 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Saved</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Bottom: Pagination & Action Buttons -->
+<div class="pt-4 border-t border-obsidian-600/60 flex flex-wrap items-center justify-between gap-4">
+<!-- Pagination Controls -->
+<div class="flex items-center space-x-2 text-xs text-slate-400">
+<span>Showing <strong class="text-white">1–8</strong> of <strong class="text-white">50</strong> Saved Symbols</span>
+<div class="flex items-center space-x-1 pl-2 font-mono">
+<button class="w-6 h-6 rounded bg-obsidian-900 border border-obsidian-600 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-40" disabled="">&lt;</button>
+<button class="w-6 h-6 rounded bg-electric-600 text-white font-bold flex items-center justify-center shadow-glow-blue">1</button>
+<button class="w-6 h-6 rounded bg-obsidian-900 border border-obsidian-600 flex items-center justify-center text-slate-300 hover:text-white">2</button>
+<button class="w-6 h-6 rounded bg-obsidian-900 border border-obsidian-600 flex items-center justify-center text-slate-300 hover:text-white">3</button>
+<span class="text-slate-600 px-1">...</span>
+<button class="w-6 h-6 rounded bg-obsidian-900 border border-obsidian-600 flex items-center justify-center text-slate-300 hover:text-white">5</button>
+<button class="w-6 h-6 rounded bg-obsidian-900 border border-obsidian-600 flex items-center justify-center text-slate-300 hover:text-white">&gt;</button>
+</div>
+</div>
+<!-- Footer Action Buttons -->
+<div class="flex items-center space-x-3">
+<!-- Load Saved Group Button -->
+<button class="px-4 py-2 bg-obsidian-900 hover:bg-obsidian-700 border border-obsidian-600/80 rounded-xl text-xs font-semibold text-slate-200 transition-colors flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>Load Saved Group</span>
+</button>
+<!-- Reset Tab Button -->
+<button class="px-4 py-2 bg-obsidian-900 hover:bg-rose-950/40 border border-rose-500/30 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>Reset Tab</span>
+</button>
+<!-- Save Selection Primary Button -->
+<button class="px-5 py-2 bg-gradient-to-r from-blue-600 to-electric-600 hover:from-blue-500 hover:to-electric-500 text-white font-bold text-xs rounded-xl shadow-glow-blue flex items-center space-x-2 transition-all">
+<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+<span>Save Selection</span>
+</button>
+</div>
+</div>
+</section>
+<!-- END: SelectedSymbolsPreview -->
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: MinimalFooter -->
+<footer class="w-full border-t border-obsidian-600/40 py-3 px-6 mt-4">
+<div class="max-w-[1780px] mx-auto flex items-center justify-between text-[11px] text-slate-500">
+<div class="flex items-center space-x-3">
+<span>KEYS Pine Engine v4.2.1-prod</span>
+<span>•</span>
+<span class="text-sky-500 font-mono">Bybit Perpetual USDT API</span>
+</div>
+<div>
+<span>Universe Revision: <strong class="text-slate-400">Bybit-T1-50-Live</strong></span>
+</div>
+</div>
+</footer>
+<!-- END: MinimalFooter -->
+</body></html>

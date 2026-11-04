@@ -1,0 +1,26 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local dependencies and builds
+node_modules/
+dist/
+.cache/
+.aistudio/
+
+# Historical and private data
+data/
+historical-data/
+.env
+.env.*
+!.env.example
+
+# Archives and logs
+*.zip
+*.tar.gz
+*.log

@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1463FF;
+  --color-bg-dark: #101216;
+  --color-panel: #15191F;
+  --color-panel-dark: #0c0f14;
+  --color-panel-border: #1e2530;
+  --color-bull: #0BBA74;
+  --color-bear: #FF4761;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  font-size: 1.15rem;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Custom sleek scrollbar for data tables and chart overlays */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0d121a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2a3c;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2d3d57;
+}

@@ -1,0 +1,583 @@
+/**
+ * Real Multi-Exchange Historical Data Pipeline for USDT-Margined Perpetual Futures
+ * Supported Exchanges: Bybit, Binance, OKX, Bitget, KuCoin, Gate.io, MEXC
+ * Features: Public APIs only, pagination, incremental caching, deduplication,
+ * UTC alignment, exponential backoff, custom timeframe aggregation, no synthetic fallbacks.
+ */
+import fs from 'fs';
+import path from 'path';
+import { ExchangeId, ExchangeInfo, SymbolMeta, OHLCV } from '../src/types';
+
+export const SUPPORTED_EXCHANGES: ExchangeInfo[] = [
+  {
+    id: 'bybit',
+    name: 'Bybit',
+    logo: 'https://assets.coingecko.com/markets/images/698/small/bybit_logo.png',
+    defaultFeeMaker: 0.0002, // 0.02%
+    defaultFeeTaker: 0.00055, // 0.055%
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'binance',
+    name: 'Binance',
+    logo: 'https://assets.coingecko.com/markets/images/52/small/binance.jpg',
+    defaultFeeMaker: 0.0002,
+    defaultFeeTaker: 0.0004,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'okx',
+    name: 'OKX',
+    logo: 'https://assets.coingecko.com/markets/images/96/small/okx.png',
+    defaultFeeMaker: 0.0002,
+    defaultFeeTaker: 0.0005,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'bitget',
+    name: 'Bitget',
+    logo: 'https://assets.coingecko.com/markets/images/440/small/bitget.png',
+    defaultFeeMaker: 0.0002,
+    defaultFeeTaker: 0.0006,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'gateio',
+    name: 'Gate.io',
+    logo: 'https://assets.coingecko.com/markets/images/60/small/gateio.png',
+    defaultFeeMaker: 0.00015,
+    defaultFeeTaker: 0.0005,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'kucoin',
+    name: 'KuCoin',
+    logo: 'https://assets.coingecko.com/markets/images/61/small/kucoin.png',
+    defaultFeeMaker: 0.0002,
+    defaultFeeTaker: 0.0006,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  },
+  {
+    id: 'mexc',
+    name: 'MEXC',
+    logo: 'https://assets.coingecko.com/markets/images/409/small/mexc.png',
+    defaultFeeMaker: 0.0000,
+    defaultFeeTaker: 0.0002,
+    defaultFundingRate: 0.0001,
+    supportsMaxLeverage: true
+  }
+];
+
+// Top 50 USDT Perpetual Symbols Metadata
+const DEFAULT_PERPETUAL_SYMBOLS: Omit<SymbolMeta, 'exchange'>[] = [
+  { symbol: 'BTCUSDT', baseAsset: 'BTC', quoteAsset: 'USDT', maxLeverage: 100, minNotional: 5, pricePrecision: 1, quantityPrecision: 3, category: 'LAYER1', lastPrice: 76880.50, change24h: 2.31, volume24h: 12450000000 },
+  { symbol: 'ETHUSDT', baseAsset: 'ETH', quoteAsset: 'USDT', maxLeverage: 100, minNotional: 5, pricePrecision: 2, quantityPrecision: 2, category: 'LAYER1', lastPrice: 3472.18, change24h: 1.87, volume24h: 6210000000 },
+  { symbol: 'SOLUSDT', baseAsset: 'SOL', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 2, quantityPrecision: 1, category: 'LAYER1', lastPrice: 168.42, change24h: 3.96, volume24h: 2980000000 },
+  { symbol: 'BNBUSDT', baseAsset: 'BNB', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 2, quantityPrecision: 2, category: 'LAYER1', lastPrice: 612.60, change24h: 1.24, volume24h: 1870000000 },
+  { symbol: 'XRPUSDT', baseAsset: 'XRP', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'Payments', lastPrice: 0.6248, change24h: 1.69, volume24h: 1560000000 },
+  { symbol: 'ADAUSDT', baseAsset: 'ADA', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER1', lastPrice: 0.4129, change24h: 2.17, volume24h: 785360000 },
+  { symbol: 'AVAXUSDT', baseAsset: 'AVAX', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 2, quantityPrecision: 1, category: 'LAYER1', lastPrice: 34.81, change24h: 3.08, volume24h: 742110000 },
+  { symbol: 'DOGEUSDT', baseAsset: 'DOGE', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 5, quantityPrecision: 0, category: 'Meme', lastPrice: 0.1428, change24h: 2.96, volume24h: 2110000000 },
+  { symbol: 'TRXUSDT', baseAsset: 'TRX', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 5, quantityPrecision: 0, category: 'LAYER1', lastPrice: 0.1365, change24h: 0.74, volume24h: 403270000 },
+  { symbol: 'DOTUSDT', baseAsset: 'DOT', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'LAYER1', lastPrice: 7.362, change24h: 1.49, volume24h: 286480000 },
+  { symbol: 'LINKUSDT', baseAsset: 'LINK', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'DeFi', lastPrice: 18.47, change24h: 2.62, volume24h: 561230000 },
+  { symbol: 'POLUSDT', baseAsset: 'POL', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER2', lastPrice: 0.3892, change24h: 2.11, volume24h: 370880000 },
+  { symbol: 'ARBUSDT', baseAsset: 'ARB', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER2', lastPrice: 0.9821, change24h: 3.44, volume24h: 321760000 },
+  { symbol: 'OPUSDT', baseAsset: 'OP', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'LAYER2', lastPrice: 1.684, change24h: -0.37, volume24h: 197230000 },
+  { symbol: 'INJUSDT', baseAsset: 'INJ', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'DeFi', lastPrice: 28.15, change24h: 4.12, volume24h: 389410000 },
+  { symbol: 'APTUSDT', baseAsset: 'APT', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'LAYER1', lastPrice: 9.462, change24h: 2.78, volume24h: 268550000 },
+  { symbol: 'SUIUSDT', baseAsset: 'SUI', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER1', lastPrice: 1.982, change24h: 3.19, volume24h: 311070000 },
+  { symbol: 'NEARUSDT', baseAsset: 'NEAR', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'AI', lastPrice: 5.602, change24h: 1.63, volume24h: 229140000 },
+  { symbol: 'FETUSDT', baseAsset: 'FET', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'AI', lastPrice: 1.269, change24h: 5.07, volume24h: 184620000 },
+  { symbol: 'RENDERUSDT', baseAsset: 'RENDER', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'AI', lastPrice: 7.221, change24h: 3.02, volume24h: 176030000 },
+  { symbol: 'PEPEUSDT', baseAsset: 'PEPE', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 8, quantityPrecision: 0, category: 'Meme', lastPrice: 0.00000945, change24h: 6.84, volume24h: 1450000000 },
+  { symbol: 'SHIBUSDT', baseAsset: 'SHIB', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 8, quantityPrecision: 0, category: 'Meme', lastPrice: 0.00001842, change24h: 1.45, volume24h: 890000000 },
+  { symbol: 'WIFUSDT', baseAsset: 'WIF', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'Meme', lastPrice: 2.348, change24h: 4.88, volume24h: 680000000 },
+  { symbol: 'BONKUSDT', baseAsset: 'BONK', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 8, quantityPrecision: 0, category: 'Meme', lastPrice: 0.00002130, change24h: 3.12, volume24h: 430000000 },
+  { symbol: 'UNIUSDT', baseAsset: 'UNI', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'DeFi', lastPrice: 8.452, change24h: 1.89, volume24h: 210000000 },
+  { symbol: 'AAVEUSDT', baseAsset: 'AAVE', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 2, quantityPrecision: 2, category: 'DeFi', lastPrice: 154.20, change24h: 3.45, volume24h: 340000000 },
+  { symbol: 'MKRUSDT', baseAsset: 'MKR', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 1, quantityPrecision: 3, category: 'DeFi', lastPrice: 1420.50, change24h: -1.20, volume24h: 98000000 },
+  { symbol: 'PENDLEUSDT', baseAsset: 'PENDLE', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'DeFi', lastPrice: 4.821, change24h: 5.23, volume24h: 185000000 },
+  { symbol: 'ENAUSDT', baseAsset: 'ENA', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'DeFi', lastPrice: 0.3845, change24h: 2.91, volume24h: 165000000 },
+  { symbol: 'GALAUSDT', baseAsset: 'GALA', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 5, quantityPrecision: 0, category: 'GameFi', lastPrice: 0.02451, change24h: 1.15, volume24h: 110000000 },
+  { symbol: 'AXSUSDT', baseAsset: 'AXS', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'GameFi', lastPrice: 5.120, change24h: 0.85, volume24h: 87000000 },
+  { symbol: 'SANDUSDT', baseAsset: 'SAND', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'GameFi', lastPrice: 0.2842, change24h: 1.62, volume24h: 94000000 },
+  { symbol: 'MANAUSDT', baseAsset: 'MANA', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'GameFi', lastPrice: 0.3125, change24h: 1.34, volume24h: 82000000 },
+  { symbol: 'TAOUSDT', baseAsset: 'TAO', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 2, quantityPrecision: 2, category: 'AI', lastPrice: 520.40, change24h: 4.12, volume24h: 230000000 },
+  { symbol: 'WLDUSDT', baseAsset: 'WLD', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'AI', lastPrice: 1.984, change24h: 2.45, volume24h: 310000000 },
+  { symbol: 'ICPUSDT', baseAsset: 'ICP', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'LAYER1', lastPrice: 8.240, change24h: 0.95, volume24h: 145000000 },
+  { symbol: 'SEIUSDT', baseAsset: 'SEI', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER1', lastPrice: 0.4120, change24h: 3.20, volume24h: 195000000 },
+  { symbol: 'TIAUSDT', baseAsset: 'TIA', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER1', lastPrice: 5.340, change24h: 2.10, volume24h: 175000000 },
+  { symbol: 'KASUSDT', baseAsset: 'KAS', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 5, quantityPrecision: 0, category: 'LAYER1', lastPrice: 0.1340, change24h: 1.78, volume24h: 125000000 },
+  { symbol: 'FTMUSDT', baseAsset: 'FTM', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER1', lastPrice: 0.6920, change24h: 4.25, volume24h: 285000000 },
+  { symbol: 'STXUSDT', baseAsset: 'STX', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER2', lastPrice: 1.845, change24h: 2.65, volume24h: 140000000 },
+  { symbol: 'IMXUSDT', baseAsset: 'IMX', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'LAYER2', lastPrice: 1.342, change24h: 1.95, volume24h: 115000000 },
+  { symbol: 'LDOUSDT', baseAsset: 'LDO', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'DeFi', lastPrice: 1.240, change24h: 0.65, volume24h: 95000000 },
+  { symbol: 'CRVUSDT', baseAsset: 'CRV', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'DeFi', lastPrice: 0.285, change24h: 1.45, volume24h: 75000000 },
+  { symbol: 'RUNEUSDT', baseAsset: 'RUNE', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 3, quantityPrecision: 1, category: 'DeFi', lastPrice: 5.120, change24h: 2.85, volume24h: 165000000 },
+  { symbol: 'FLOKIUSDT', baseAsset: 'FLOKI', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 8, quantityPrecision: 0, category: 'Meme', lastPrice: 0.0001425, change24h: 3.75, volume24h: 280000000 },
+  { symbol: 'BOMEUSDT', baseAsset: 'BOME', quoteAsset: 'USDT', maxLeverage: 50, minNotional: 5, pricePrecision: 6, quantityPrecision: 0, category: 'Meme', lastPrice: 0.00892, change24h: 2.45, volume24h: 195000000 },
+  { symbol: 'POPCATUSDT', baseAsset: 'POPCAT', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'Meme', lastPrice: 1.542, change24h: 6.25, volume24h: 310000000 },
+  { symbol: 'NEIROUSDT', baseAsset: 'NEIRO', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 6, quantityPrecision: 0, category: 'Meme', lastPrice: 0.00185, change24h: 8.45, volume24h: 420000000 },
+  { symbol: 'BLURUSDT', baseAsset: 'BLUR', quoteAsset: 'USDT', maxLeverage: 25, minNotional: 5, pricePrecision: 4, quantityPrecision: 0, category: 'NFT', lastPrice: 0.2450, change24h: 1.15, volume24h: 65000000 }
+];
+
+export class ExchangeDataService {
+  private cacheDir: string;
+
+  constructor() {
+    this.cacheDir = path.resolve(process.cwd(), '.cache', 'ohlcv');
+    if (!fs.existsSync(this.cacheDir)) {
+      fs.mkdirSync(this.cacheDir, { recursive: true });
+    }
+  }
+
+  getExchange(exchangeId: ExchangeId): ExchangeInfo {
+    return SUPPORTED_EXCHANGES.find((e) => e.id === exchangeId) || SUPPORTED_EXCHANGES[0];
+  }
+
+  getSymbols(exchangeId: ExchangeId): SymbolMeta[] {
+    return DEFAULT_PERPETUAL_SYMBOLS.map((s) => ({
+      ...s,
+      exchange: exchangeId,
+      maxLeverage: exchangeId === 'binance' && s.symbol === 'BTCUSDT' ? 125 : s.maxLeverage
+    }));
+  }
+
+  getSymbolMeta(exchangeId: ExchangeId, symbol: string): SymbolMeta | undefined {
+    return this.getSymbols(exchangeId).find((s) => s.symbol.toUpperCase() === symbol.toUpperCase());
+  }
+
+  /**
+   * Main entry point for retrieving historical OHLCV data.
+   * Downloads real market data from public exchange APIs, caches locally on disk,
+   * performs incremental updates, and aggregates to the requested timeframe.
+   * If the real data cannot be retrieved, throws an informative error (no fake data!).
+   */
+  async getOHLCVCandles(
+    exchangeId: ExchangeId,
+    symbol: string,
+    timeframeMinutes: number,
+    requiredCount = 1000
+  ): Promise<OHLCV[]> {
+    // We fetch base 5m data if requested timeframe is a multiple of 5 (e.g. 5, 10, 15, 25, 30, 60, 240)
+    // or base 1m data if requested timeframe is not a multiple of 5.
+    const isMultipleOf5 = timeframeMinutes % 5 === 0;
+    const baseIntervalMinutes = isMultipleOf5 ? 5 : 1;
+    const aggregationFactor = timeframeMinutes / baseIntervalMinutes;
+    const baseCandlesNeeded = Math.ceil(requiredCount * aggregationFactor);
+
+    const baseCandles = await this.fetchAndCacheRealBaseCandles(
+      exchangeId,
+      symbol.toUpperCase(),
+      baseIntervalMinutes,
+      baseCandlesNeeded
+    );
+
+    if (baseCandles.length === 0) {
+      throw new Error(`No historical market data available from ${exchangeId} for ${symbol}.`);
+    }
+
+    // If no aggregation needed, return directly
+    if (aggregationFactor === 1) {
+      return baseCandles.slice(-requiredCount);
+    }
+
+    // Aggregate lower-timeframe candles to higher-timeframe without future-data leakage
+    return this.aggregateCandles(baseCandles, timeframeMinutes).slice(-requiredCount);
+  }
+
+  /**
+   * Fetches real base candles using pagination and incremental disk caching.
+   */
+  private async fetchAndCacheRealBaseCandles(
+    exchangeId: ExchangeId,
+    symbol: string,
+    intervalMinutes: number,
+    targetCount: number
+  ): Promise<OHLCV[]> {
+    const cacheFile = path.join(this.cacheDir, `${exchangeId}_${symbol}_${intervalMinutes}m_base.json`);
+    let cachedCandles: OHLCV[] = [];
+
+    if (fs.existsSync(cacheFile)) {
+      try {
+        const raw = fs.readFileSync(cacheFile, 'utf8');
+        cachedCandles = JSON.parse(raw);
+        if (!Array.isArray(cachedCandles)) cachedCandles = [];
+      } catch {
+        cachedCandles = [];
+      }
+    }
+
+    const intervalSec = intervalMinutes * 60;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const earliestRequiredSec = nowSec - targetCount * intervalSec;
+
+    // Check if cached data already satisfies the requested count and is reasonably fresh (< 15 mins old)
+    const isCacheFresh = cachedCandles.length > 0 && (nowSec - cachedCandles[cachedCandles.length - 1].time) < 900;
+    const hasEnoughHistory = cachedCandles.length >= targetCount && cachedCandles[0].time <= earliestRequiredSec;
+
+    if (isCacheFresh && hasEnoughHistory) {
+      return cachedCandles;
+    }
+
+    // Download incrementally
+    try {
+      const fetched = await this.downloadPaginatedKlines(
+        exchangeId,
+        symbol,
+        intervalMinutes,
+        targetCount
+      );
+
+      // Merge cached and fetched candles, deduplicate by timestamp, sort ascending
+      const map = new Map<number, OHLCV>();
+      cachedCandles.forEach((c) => map.set(c.time, c));
+      fetched.forEach((c) => map.set(c.time, c));
+
+      const merged = Array.from(map.values()).sort((a, b) => a.time - b.time);
+
+      // Validate candle order and verify timestamps are strictly increasing
+      const validated: OHLCV[] = [];
+      for (let i = 0; i < merged.length; i++) {
+        if (i === 0 || merged[i].time > merged[i - 1].time) {
+          validated.push(merged[i]);
+        }
+      }
+
+      // Persist to disk cache
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(validated), 'utf8');
+      } catch (err) {
+        console.warn(`Failed to write OHLCV cache for ${symbol}:`, err);
+      }
+
+      return validated;
+    } catch (err: any) {
+      // If network fails but we have some cached data, return what we have; otherwise throw real error
+      if (cachedCandles.length > 0) {
+        console.warn(`Network fetch failed for ${symbol}, using existing ${cachedCandles.length} cached bars:`, err.message);
+        return cachedCandles;
+      }
+      throw new Error(`Exchange [${exchangeId.toUpperCase()}] API request failed for ${symbol}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Download paginated real klines from public endpoints with backoff
+   */
+  private async downloadPaginatedKlines(
+    exchangeId: ExchangeId,
+    symbol: string,
+    intervalMinutes: number,
+    targetCount: number
+  ): Promise<OHLCV[]> {
+    let collected: OHLCV[] = [];
+    let endTimeMs = Date.now();
+    const maxPages = Math.min(15, Math.ceil(targetCount / 200) + 1);
+
+    for (let page = 0; page < maxPages; page++) {
+      if (collected.length >= targetCount) break;
+
+      const pageCandles = await this.fetchSingleKlinesPageWithRetry(
+        exchangeId,
+        symbol,
+        intervalMinutes,
+        endTimeMs
+      );
+
+      if (!pageCandles || pageCandles.length === 0) break;
+
+      // pageCandles is sorted ascending
+      collected = [...pageCandles, ...collected];
+      const oldestTimeMs = pageCandles[0].time * 1000;
+      endTimeMs = oldestTimeMs - 1;
+
+      // Avoid hitting rate limits
+      await new Promise((r) => setTimeout(r, 60));
+    }
+
+    // Deduplicate and sort ascending
+    const map = new Map<number, OHLCV>();
+    collected.forEach((c) => map.set(c.time, c));
+    return Array.from(map.values()).sort((a, b) => a.time - b.time);
+  }
+
+  /**
+   * Fetches a single page of klines from the specified exchange with exponential backoff
+   */
+  private async fetchSingleKlinesPageWithRetry(
+    exchangeId: ExchangeId,
+    symbol: string,
+    intervalMinutes: number,
+    endTimeMs: number
+  ): Promise<OHLCV[]> {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        return await this.fetchSingleExchangeKlines(exchangeId, symbol, intervalMinutes, endTimeMs);
+      } catch (err: any) {
+        if (attempts >= maxAttempts) throw err;
+        // Exponential backoff
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempts)));
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Direct exchange adapter implementations for USDT perpetual futures
+   */
+  private async fetchSingleExchangeKlines(
+    exchangeId: ExchangeId,
+    symbol: string,
+    intervalMinutes: number,
+    endTimeMs: number
+  ): Promise<OHLCV[]> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    try {
+      if (exchangeId === 'bybit') {
+        // Bybit V5 Linear Kline
+        const bybitMemeMap: Record<string, string> = {
+          PEPEUSDT: '1000PEPEUSDT',
+          SHIBUSDT: 'SHIB1000USDT',
+          BONKUSDT: '1000BONKUSDT',
+          FLOKIUSDT: '1000FLOKIUSDT',
+          BOMEUSDT: '1000BOMEUSDT',
+          NEIROUSDT: '1000NEIROCTOUSDT'
+        };
+        const bybitSym = bybitMemeMap[symbol] || symbol;
+        const intervalStr = intervalMinutes.toString();
+        const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${intervalStr}&limit=1000&end=${endTimeMs}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        if (json.retCode !== 0) throw new Error(json.retMsg || 'Bybit API Error');
+
+        const list = json.result?.list || [];
+        // Bybit returns list descending: [startTime, open, high, low, close, volume, turnover]
+        return list.slice().reverse().map((item: string[]) => ({
+          time: Math.floor(Number(item[0]) / 1000),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        }));
+      }
+
+      if (exchangeId === 'binance') {
+        // Binance USDT-M Futures Kline
+        const binanceMemeMap: Record<string, string> = {
+          PEPEUSDT: '1000PEPEUSDT',
+          SHIBUSDT: '1000SHIBUSDT',
+          BONKUSDT: '1000BONKUSDT',
+          FLOKIUSDT: '1000FLOKIUSDT',
+          BOMEUSDT: '1000BOMEUSDT'
+        };
+        const binanceSym = binanceMemeMap[symbol] || symbol;
+        const tfMap: Record<number, string> = { 1: '1m', 3: '3m', 5: '5m', 15: '15m', 30: '30m', 60: '1h', 120: '2h', 240: '4h', 1440: '1d' };
+        const interval = tfMap[intervalMinutes] || `${intervalMinutes}m`;
+        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${binanceSym}&interval=${interval}&limit=1500&endTime=${endTimeMs}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const list = await res.json();
+        if (!Array.isArray(list)) throw new Error('Invalid Binance format');
+
+        return list.map((item: any[]) => ({
+          time: Math.floor(Number(item[0]) / 1000),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        }));
+      }
+
+      if (exchangeId === 'okx') {
+        // OKX Perpetual Swap Candles
+        // OKX symbol format: BTC-USDT-SWAP
+        const instId = symbol.includes('-SWAP') ? symbol : `${symbol.replace('USDT', '')}-USDT-SWAP`;
+        const tfMap: Record<number, string> = { 1: '1m', 3: '3m', 5: '5m', 15: '15m', 30: '30m', 60: '1H', 120: '2H', 240: '4H' };
+        const bar = tfMap[intervalMinutes] || `${intervalMinutes}m`;
+        const url = `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=100&after=${endTimeMs}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        if (json.code !== '0') throw new Error(json.msg || 'OKX API error');
+
+        const data = json.data || [];
+        // OKX returns descending: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
+        return data.slice().reverse().map((item: string[]) => ({
+          time: Math.floor(Number(item[0]) / 1000),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        }));
+      }
+
+      if (exchangeId === 'bitget') {
+        // Bitget USDT Futures Candles
+        const tfMap: Record<number, string> = { 1: '1m', 5: '5m', 15: '15m', 30: '30m', 60: '1h', 240: '4h' };
+        const gran = tfMap[intervalMinutes] || `${intervalMinutes}m`;
+        const url = `https://api.bitget.com/api/v2/mix/market/candles?symbol=${symbol}&granularity=${gran}&limit=100&productType=USDT-FUTURES&endTime=${endTimeMs}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        if (json.code !== '00000') throw new Error(json.msg || 'Bitget error');
+
+        const data = json.data || [];
+        // [ts, open, high, low, close, baseVol, quoteVol]
+        return data.slice().reverse().map((item: string[]) => ({
+          time: Math.floor(Number(item[0]) / 1000),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        }));
+      }
+
+      if (exchangeId === 'gateio') {
+        // Gate.io USDT Futures Candlesticks
+        // contract format: BTC_USDT
+        const contract = symbol.includes('_') ? symbol : `${symbol.replace('USDT', '')}_USDT`;
+        const toSec = Math.floor(endTimeMs / 1000);
+        const url = `https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract=${contract}&interval=${intervalMinutes}m&limit=1000&to=${toSec}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('Gate.io returned invalid format');
+
+        // [{ t, o, c, h, l, v, sum }]
+        return data.map((item: any) => ({
+          time: Number(item.t),
+          open: Number(item.o),
+          high: Number(item.h),
+          low: Number(item.l),
+          close: Number(item.c),
+          volume: Number(item.v)
+        })).sort((a: OHLCV, b: OHLCV) => a.time - b.time);
+      }
+
+      if (exchangeId === 'kucoin') {
+        // KuCoin Futures
+        // symbol: XBTUSDTM, etc.
+        const kucoinSym = symbol === 'BTCUSDT' ? 'XBTUSDTM' : `${symbol.replace('USDT', '')}USDTM`;
+        const url = `https://api-futures.kucoin.com/api/v1/kline/query?symbol=${kucoinSym}&granularity=${intervalMinutes}&to=${endTimeMs}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        if (json.code !== '200000') throw new Error(json.msg || 'KuCoin error');
+
+        const data = json.data || [];
+        // [[time, open, high, low, close, volume, turnover], ...]
+        return data.map((item: any[]) => ({
+          time: Math.floor(Number(item[0]) / 1000),
+          open: Number(item[1]),
+          high: Number(item[2]),
+          low: Number(item[3]),
+          close: Number(item[4]),
+          volume: Number(item[5])
+        })).sort((a: OHLCV, b: OHLCV) => a.time - b.time);
+      }
+
+      if (exchangeId === 'mexc') {
+        // MEXC Perpetual Futures
+        // contract: BTC_USDT
+        const contract = symbol.includes('_') ? symbol : `${symbol.replace('USDT', '')}_USDT`;
+        const url = `https://contract.mexc.com/api/v1/contract/kline/${contract}?interval=Min${intervalMinutes}&end=${Math.floor(endTimeMs / 1000)}`;
+        const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error('MEXC API error');
+
+        const d = json.data;
+        const result: OHLCV[] = [];
+        for (let i = 0; i < (d.time?.length || 0); i++) {
+          result.push({
+            time: Number(d.time[i]),
+            open: Number(d.open[i]),
+            high: Number(d.high[i]),
+            low: Number(d.low[i]),
+            close: Number(d.close[i]),
+            volume: Number(d.vol[i])
+          });
+        }
+        return result.sort((a, b) => a.time - b.time);
+      }
+
+      throw new Error(`Exchange ${exchangeId} is not supported`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Aggregates lower-timeframe candles into higher-timeframe candles
+   * strictly aligned to exchange boundaries (UTC 00:00) without future lookahead.
+   */
+  aggregateCandles(baseCandles: OHLCV[], targetMinutes: number): OHLCV[] {
+    if (baseCandles.length === 0) return [];
+
+    const bucketSeconds = targetMinutes * 60;
+    const bucketMap = new Map<number, OHLCV[]>();
+
+    for (const c of baseCandles) {
+      // Exchange-aligned candle boundary
+      const bucketTime = Math.floor(c.time / bucketSeconds) * bucketSeconds;
+      let list = bucketMap.get(bucketTime);
+      if (!list) {
+        list = [];
+        bucketMap.set(bucketTime, list);
+      }
+      list.push(c);
+    }
+
+    const aggregated: OHLCV[] = [];
+    const sortedBucketTimes = Array.from(bucketMap.keys()).sort((a, b) => a - b);
+
+    for (const bucketTime of sortedBucketTimes) {
+      const group = bucketMap.get(bucketTime)!;
+      group.sort((a, b) => a.time - b.time);
+
+      const open = group[0].open;
+      const close = group[group.length - 1].close;
+      let high = group[0].high;
+      let low = group[0].low;
+      let volume = 0;
+
+      for (const item of group) {
+        if (item.high > high) high = item.high;
+        if (item.low < low) low = item.low;
+        volume += item.volume;
+      }
+
+      aggregated.push({
+        time: bucketTime,
+        open,
+        high,
+        low,
+        close,
+        volume: Number(volume.toFixed(4))
+      });
+    }
+
+    return aggregated;
+  }
+}
+
+export const exchangeService = new ExchangeDataService();

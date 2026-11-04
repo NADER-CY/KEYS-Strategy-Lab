@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KEYS / Bybit Strategy Lab</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#070b12',
+              card: '#0c1322',
+              cardInner: '#090f1a',
+              border: '#172338',
+              borderLight: '#223552',
+              accentBlue: '#0066ff',
+              accentGreen: '#00c076',
+              accentRed: '#f6465d',
+              accentYellow: '#f5b000',
+              inputBg: '#080d16'
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="base-styling">
+    /* Custom scrollbars and smooth resets */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e2c44;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #2a3e60;
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+  </style>
+</head>
+<body class="bg-[#060a11] text-slate-200 font-sans antialiased min-h-screen selection:bg-blue-600 selection:text-white">
+<!-- BEGIN: TopNavigationHeader -->
+<header class="h-14 border-b border-[#141f33] bg-[#090f1b] px-4 flex items-center justify-between select-none">
+<!-- Left: App Identity -->
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-1.5 leading-none">
+<span class="font-bold text-slate-100 text-sm tracking-wide">KEYS</span>
+<span class="text-slate-500 text-xs">/</span>
+<span class="text-xs text-slate-300 font-medium">Bybit Strategy Lab</span>
+</div>
+<div class="text-[10px] text-slate-500 font-normal tracking-tight mt-0.5">
+          Advanced Backtest • Strategy • Pine Script
+        </div>
+</div>
+</div>
+<!-- Center Navigation Tabs -->
+<nav class="flex items-center space-x-1 bg-[#0b1322] p-1 rounded-lg border border-[#16233a]">
+<button class="px-4 py-1.5 rounded-md text-xs font-semibold bg-[#0066ff] text-white shadow-sm flex items-center space-x-2">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Chart &amp; Backtest</span>
+</button>
+<button class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#131f33] transition flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Backtest Results</span>
+</button>
+<button class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#131f33] transition flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Positions &amp; Charts</span>
+</button>
+</nav>
+<!-- Right Header Controls -->
+<div class="flex items-center space-x-3 text-xs">
+<div class="flex items-center space-x-1.5 text-xs text-emerald-400 font-medium px-2 py-1 rounded bg-emerald-950/30 border border-emerald-800/40">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span>Ready</span>
+</div>
+<div class="h-4 w-[1px] bg-slate-800"></div>
+<button class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" title="Save Workspace">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<button class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" title="Load Templates">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<button class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" title="Global Settings">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</header>
+<!-- END: TopNavigationHeader -->
+<!-- BEGIN: ChartSection -->
+<section class="border-b border-[#141f33] bg-[#070b13]">
+<!-- Chart Top Utility Bar -->
+<div class="h-11 px-4 border-b border-[#121b2b] flex items-center justify-between text-xs">
+<div class="flex items-center space-x-3">
+<!-- Symbol Selector -->
+<button class="flex items-center space-x-2 bg-[#0d1627] hover:bg-[#121f38] border border-[#1b2b45] px-2.5 py-1 rounded text-slate-200 font-semibold transition">
+<span class="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[10px] text-black font-extrabold">₿</span>
+<span>BTCUSDT</span>
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+<!-- Timeframe Pills -->
+<div class="flex items-center space-x-1">
+<button class="px-2 py-0.5 rounded bg-[#0066ff] text-white font-medium">5m</button>
+<button class="px-2 py-0.5 rounded hover:bg-[#142036] text-slate-400 hover:text-slate-200">15m</button>
+<button class="px-2 py-0.5 rounded hover:bg-[#142036] text-slate-400 hover:text-slate-200">30m</button>
+<button class="px-2 py-0.5 rounded hover:bg-[#142036] text-slate-400 hover:text-slate-200">1h</button>
+<button class="px-2 py-0.5 rounded hover:bg-[#142036] text-slate-400 hover:text-slate-200">4h</button>
+<button class="px-2 py-0.5 rounded hover:bg-[#142036] text-slate-400 hover:text-slate-200">1D</button>
+<button class="p-1 rounded text-slate-400 hover:text-slate-200 ml-1">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+</div>
+<!-- Right Chart Tool -->
+<div>
+<button class="p-1 rounded hover:bg-[#131f33] text-slate-400 hover:text-slate-200 transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+</div>
+<!-- Chart Canvas Container -->
+<div class="flex h-[240px] relative select-none">
+<!-- Left Chart Drawing Tools -->
+<aside class="w-10 border-r border-[#121c2c] bg-[#080d16] flex flex-col items-center py-2 space-y-3 text-slate-400">
+<button class="p-1 hover:text-white hover:bg-slate-800 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<button class="p-1 hover:text-white hover:bg-slate-800 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="5" r="2"></circle><path d="M6.5 17.5l11-11" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<button class="p-1 hover:text-white hover:bg-slate-800 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="3"></rect></svg></button>
+<button class="p-1 hover:text-white hover:bg-slate-800 rounded"><span class="font-serif font-bold text-xs">T</span></button>
+<button class="p-1 hover:text-red-400 hover:bg-slate-800 rounded pt-4 text-slate-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</aside>
+<!-- Main Candlestick Chart Area -->
+<div class="flex-1 relative overflow-hidden bg-[#070b13]">
+<!-- High-fidelity Candlesticks SVG -->
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 240">
+<!-- Background Grid Lines -->
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="1000" y1="35" y2="35"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="1000" y1="80" y2="80"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="1000" y1="125" y2="125"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="1000" y1="170" y2="170"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="1000" y1="215" y2="215"></line>
+<!-- Vertical Time Grid -->
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="80" x2="80" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="220" x2="220" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="360" x2="360" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="500" x2="500" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="640" x2="640" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="780" x2="780" y1="0" y2="240"></line>
+<line stroke="#121d2d" stroke-dasharray="3,3" stroke-width="1" x1="920" x2="920" y1="0" y2="240"></line>
+<!-- Candlestick cluster 1 (Start upwards) -->
+<line stroke="#f6465d" stroke-width="1.5" x1="30" x2="30" y1="185" y2="215"></line>
+<rect fill="#f6465d" height="20" width="6" x="27" y="190"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="45" x2="45" y1="175" y2="210"></line>
+<rect fill="#00c076" height="22" width="6" x="42" y="180"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="60" x2="60" y1="165" y2="198"></line>
+<rect fill="#00c076" height="22" width="6" x="57" y="170"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="75" x2="75" y1="150" y2="195"></line>
+<rect fill="#00c076" height="35" width="6" x="72" y="155"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="90" x2="90" y1="140" y2="175"></line>
+<rect fill="#00c076" height="25" width="6" x="87" y="145"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="105" x2="105" y1="145" y2="180"></line>
+<rect fill="#f6465d" height="22" width="6" x="102" y="150"></rect>
+<!-- Bullish wave towards Peak 1 -->
+<line stroke="#00c076" stroke-width="1.5" x1="120" x2="120" y1="130" y2="165"></line>
+<rect fill="#00c076" height="25" width="6" x="117" y="135"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="135" x2="135" y1="110" y2="148"></line>
+<rect fill="#00c076" height="28" width="6" x="132" y="115"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="150" x2="150" y1="95" y2="135"></line>
+<rect fill="#00c076" height="28" width="6" x="147" y="100"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="165" x2="165" y1="80" y2="115"></line>
+<rect fill="#00c076" height="26" width="6" x="162" y="85"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="180" x2="180" y1="65" y2="100"></line>
+<rect fill="#00c076" height="25" width="6" x="177" y="70"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="195" x2="195" y1="52" y2="88"></line>
+<rect fill="#00c076" height="28" width="6" x="192" y="55"></rect>
+<!-- Peak 1 SELL area -->
+<line stroke="#f6465d" stroke-width="1.5" x1="210" x2="210" y1="42" y2="78"></line>
+<rect fill="#f6465d" height="25" width="6" x="207" y="48"></rect>
+<!-- Downtrend from Peak 1 -->
+<line stroke="#f6465d" stroke-width="1.5" x1="225" x2="225" y1="58" y2="92"></line>
+<rect fill="#f6465d" height="26" width="6" x="222" y="62"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="240" x2="240" y1="72" y2="108"></line>
+<rect fill="#f6465d" height="24" width="6" x="237" y="78"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="255" x2="255" y1="86" y2="120"></line>
+<rect fill="#f6465d" height="22" width="6" x="252" y="92"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="270" x2="270" y1="102" y2="135"></line>
+<rect fill="#f6465d" height="22" width="6" x="267" y="108"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="285" x2="285" y1="118" y2="152"></line>
+<rect fill="#f6465d" height="24" width="6" x="282" y="124"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="300" x2="300" y1="130" y2="168"></line>
+<rect fill="#f6465d" height="26" width="6" x="297" y="136"></rect>
+<!-- Trough BUY 2 -->
+<line stroke="#00c076" stroke-width="1.5" x1="315" x2="315" y1="145" y2="185"></line>
+<rect fill="#00c076" height="26" width="6" x="312" y="152"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="330" x2="330" y1="140" y2="175"></line>
+<rect fill="#00c076" height="24" width="6" x="327" y="145"></rect>
+<!-- Intermediate wave up -->
+<line stroke="#00c076" stroke-width="1.5" x1="345" x2="345" y1="125" y2="160"></line>
+<rect fill="#00c076" height="25" width="6" x="342" y="130"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="360" x2="360" y1="110" y2="148"></line>
+<rect fill="#00c076" height="26" width="6" x="357" y="118"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="375" x2="375" y1="125" y2="155"></line>
+<rect fill="#f6465d" height="20" width="6" x="372" y="130"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="390" x2="390" y1="105" y2="142"></line>
+<rect fill="#00c076" height="26" width="6" x="387" y="110"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="405" x2="405" y1="92" y2="130"></line>
+<rect fill="#00c076" height="28" width="6" x="402" y="98"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="420" x2="420" y1="78" y2="115"></line>
+<rect fill="#00c076" height="25" width="6" x="417" y="85"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="435" x2="435" y1="65" y2="98"></line>
+<rect fill="#00c076" height="25" width="6" x="432" y="70"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="450" x2="450" y1="50" y2="85"></line>
+<rect fill="#00c076" height="26" width="6" x="447" y="55"></rect>
+<!-- Peak 2 SELL area -->
+<line stroke="#f6465d" stroke-width="1.5" x1="465" x2="465" y1="42" y2="76"></line>
+<rect fill="#f6465d" height="24" width="6" x="462" y="48"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="480" x2="480" y1="55" y2="90"></line>
+<rect fill="#f6465d" height="25" width="6" x="477" y="60"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="495" x2="495" y1="70" y2="105"></line>
+<rect fill="#f6465d" height="26" width="6" x="492" y="75"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="510" x2="510" y1="85" y2="120"></line>
+<rect fill="#f6465d" height="25" width="6" x="507" y="90"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="525" x2="525" y1="102" y2="135"></line>
+<rect fill="#f6465d" height="24" width="6" x="522" y="106"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="540" x2="540" y1="115" y2="150"></line>
+<rect fill="#f6465d" height="25" width="6" x="537" y="120"></rect>
+<line stroke="#f6465d" stroke-width="1.5" x1="555" x2="555" y1="130" y2="165"></line>
+<rect fill="#f6465d" height="25" width="6" x="552" y="136"></rect>
+<!-- Trough BUY 3 -->
+<line stroke="#00c076" stroke-width="1.5" x1="570" x2="570" y1="140" y2="182"></line>
+<rect fill="#00c076" height="26" width="6" x="567" y="148"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="585" x2="585" y1="132" y2="168"></line>
+<rect fill="#00c076" height="24" width="6" x="582" y="138"></rect>
+<!-- Recent candles towards current price -->
+<line stroke="#00c076" stroke-width="1.5" x1="600" x2="600" y1="120" y2="152"></line>
+<rect fill="#00c076" height="22" width="6" x="597" y="125"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="615" x2="615" y1="108" y2="142"></line>
+<rect fill="#00c076" height="25" width="6" x="612" y="112"></rect>
+<line stroke="#00c076" stroke-width="1.5" x1="630" x2="630" y1="98" y2="135"></line>
+<rect fill="#00c076" height="24" width="6" x="627" y="104"></rect>
+<!-- Horizontal Current Price Line -->
+<line stroke="#00c076" stroke-dasharray="4,4" stroke-width="1" x1="0" x2="1000" y1="104" y2="104"></line>
+</svg>
+<!-- Signal Badges overlaid on chart -->
+<!-- BUY 1 -->
+<div class="absolute left-[70px] top-[195px] flex flex-col items-center pointer-events-none transform -translate-x-1/2">
+<div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-emerald-400 mb-0.5"></div>
+<span class="bg-[#00c076] text-black text-[9px] font-black px-1.5 py-0.2 rounded shadow">BUY</span>
+</div>
+<!-- SELL 1 -->
+<div class="absolute left-[207px] top-[26px] flex flex-col items-center pointer-events-none transform -translate-x-1/2">
+<span class="bg-[#f6465d] text-white text-[9px] font-black px-1.5 py-0.2 rounded shadow">SELL</span>
+<div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-red-500 mt-0.5"></div>
+</div>
+<!-- BUY 2 -->
+<div class="absolute left-[312px] top-[185px] flex flex-col items-center pointer-events-none transform -translate-x-1/2">
+<div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-emerald-400 mb-0.5"></div>
+<span class="bg-[#00c076] text-black text-[9px] font-black px-1.5 py-0.2 rounded shadow">BUY</span>
+</div>
+<!-- SELL 2 -->
+<div class="absolute left-[462px] top-[26px] flex flex-col items-center pointer-events-none transform -translate-x-1/2">
+<span class="bg-[#f6465d] text-white text-[9px] font-black px-1.5 py-0.2 rounded shadow">SELL</span>
+<div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-red-500 mt-0.5"></div>
+</div>
+<!-- BUY 3 -->
+<div class="absolute left-[567px] top-[182px] flex flex-col items-center pointer-events-none transform -translate-x-1/2">
+<div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-emerald-400 mb-0.5"></div>
+<span class="bg-[#00c076] text-black text-[9px] font-black px-1.5 py-0.2 rounded shadow">BUY</span>
+</div>
+</div>
+<!-- Right Price Y-Axis -->
+<aside class="w-20 border-l border-[#121c2c] bg-[#070b13] flex flex-col justify-between py-2 text-[10px] font-mono text-slate-400 pl-2 relative">
+<span>68,800.0</span>
+<span>68,600.0</span>
+<span>68,400.0</span>
+<!-- Current active price marker -->
+<div class="absolute top-[96px] left-0 right-0 bg-[#00c076] text-black font-bold px-1.5 py-0.5 text-[10px] rounded-l flex items-center justify-between shadow">
+<span>68,120.4</span>
+</div>
+<span>68,000.0</span>
+<span>67,800.0</span>
+<span>67,600.0</span>
+</aside>
+</div>
+<!-- Bottom Time X-Axis -->
+<div class="h-6 border-t border-[#121c2c] bg-[#070b13] flex text-[10px] font-mono text-slate-500 pl-12 pr-20 items-center justify-between">
+<span>10:00</span>
+<span>10:30</span>
+<span>11:00</span>
+<span>11:30</span>
+<span>12:00</span>
+<span>12:30</span>
+<span>13:00</span>
+<span>13:30</span>
+<span>14:00</span>
+<span>14:30</span>
+<span>15:00</span>
+<span>15:30</span>
+<span>16:00</span>
+</div>
+<!-- Sub-Chart Ticker Info Bar -->
+<div class="h-8 border-t border-[#131d2e] bg-[#090f1b] px-4 flex items-center justify-center space-x-4 text-[11px] text-slate-400 font-medium">
+<div>Symbol: <span class="text-emerald-400 font-semibold">BTCUSDT</span></div>
+<span class="text-slate-700">|</span>
+<div>TF: <span class="text-emerald-400 font-semibold">5m</span></div>
+<span class="text-slate-700">|</span>
+<div>Leverage: <span class="text-emerald-400 font-semibold">50x</span></div>
+<span class="text-slate-700">|</span>
+<div>Position: <span class="text-emerald-400 font-semibold">$10</span></div>
+<span class="text-slate-700">|</span>
+<div>Margin: <span class="text-emerald-400 font-semibold">$0.20</span></div>
+<span class="text-slate-700">|</span>
+<div>Max Open: <span class="text-emerald-400 font-semibold">100</span></div>
+<span class="text-slate-700">|</span>
+<div>PnL Rule: <span class="text-emerald-400 font-semibold">Custom (5)</span></div>
+</div>
+</section>
+<!-- END: ChartSection -->
+<!-- BEGIN: SettingsAreaWrapper -->
+<!-- EXACT REPRODUCTION OF IMAGE_1 -->
+<main class="p-3 bg-[#060a12] space-y-3">
+<!-- Top Tab / Action Row -->
+<div class="flex items-center justify-between select-none">
+<!-- Left Tab Pills -->
+<div class="flex items-center space-x-2">
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white text-xs font-medium flex items-center space-x-1.5 transition"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Strategy &amp; Management</span></button>
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white text-xs font-medium flex items-center space-x-1.5 transition">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>PnL Rules (5)</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white text-xs font-medium flex items-center space-x-1.5 transition">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Indicator Settings</span>
+</button>
+<button class="px-4 py-1.5 rounded-lg bg-[#0066ff] border border-blue-400/50 text-white text-xs font-semibold flex items-center space-x-2 shadow-sm shadow-blue-500/20"><svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Pine Script</span></button>
+</div>
+<!-- Right Strategy Selector & Actions -->
+<div class="flex items-center space-x-2 text-xs">
+<span class="text-slate-400 font-medium">Strategy:</span>
+<div class="relative inline-block">
+<select class="appearance-none bg-[#0a111e] border border-[#1d2d46] text-slate-200 font-semibold rounded-lg pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-500 cursor-pointer">
+<option>KEYS v1</option>
+<option>KEYS Scalper</option>
+<option>KEYS Swing</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white flex items-center space-x-1.5 transition">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Save</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white flex items-center space-x-1.5 transition">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Load</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] text-slate-300 hover:text-white flex items-center space-x-1.5 transition">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Reset</span>
+</button>
+</div>
+</div>
+<!-- BEGIN: PortfolioAndCycleManagementPanel -->
+<!-- END: PortfolioAndCycleManagementPanel -->
+<!-- BEGIN: BacktestActionRow -->
+<div class="flex items-center justify-between bg-[#080e1a] border border-[#131f32] rounded-xl px-3 py-2">
+<!-- Action Buttons -->
+<div class="flex items-center space-x-2">
+<button class="px-6 py-2 rounded-lg bg-[#00c076] hover:bg-emerald-500 text-black text-sm font-bold flex items-center space-x-2 shadow transition active:scale-[0.99]">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+<span>Run Backtest (5m)</span>
+</button>
+<button class="px-4 py-2 rounded-lg bg-[#0f1726] border border-[#1c2a42] hover:bg-[#152033] text-slate-300 text-xs font-medium flex items-center space-x-1.5 transition">
+<span class="w-2.5 h-2.5 bg-slate-300 rounded-sm"></span>
+<span>Stop</span>
+</button>
+</div>
+<!-- Execution Status Info -->
+<div class="flex items-center space-x-3 text-xs text-slate-400 font-mono">
+<div class="flex items-center space-x-1">
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Last Run: —</span>
+</div>
+<span class="text-slate-700">|</span>
+<div>
+<span>Status: </span>
+<span class="text-amber-400 font-bold">Idle</span>
+</div>
+</div>
+</div>
+<!-- END: BacktestActionRow -->
+<!-- BEGIN: LowerConfigurationPanels -->
+<div class="space-y-3"><section class="bg-[#090f1b] border border-[#142034] rounded-xl p-3 shadow-sm"><div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#121c2d] mb-2.5"><div class="flex items-center space-x-2"><span class="text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><h3 class="text-xs font-bold text-slate-100 tracking-wide">Pine Script Indicator Configuration</h3></div><div class="flex items-center space-x-2 text-[10px] font-mono"><span class="px-2 py-0.5 rounded bg-[#0d1627] border border-[#1b2940] text-blue-400 font-medium">Engine v4.2.1-prod</span><span class="px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 font-medium">Syntax: TradingView v6</span></div></div><div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 text-xs"><div class="md:col-span-3"><label class="block text-[11px] text-slate-400 mb-1">Indicator Name</label><input class="w-full bg-[#080d17] border border-[#18263c] rounded px-2.5 py-1 text-slate-200 font-semibold focus:outline-none focus:border-blue-500" type="text" value="KEYS Liquidity Trap"/></div><div class="md:col-span-2"><label class="block text-[11px] text-slate-400 mb-1">Pine Version</label><select class="w-full bg-[#080d17] border border-[#18263c] rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500"><option selected="">v6</option><option>v5</option><option>Auto Detect</option></select></div><div class="md:col-span-2"><label class="block text-[11px] text-slate-400 mb-1">Indicator Type</label><select class="w-full bg-[#080d17] border border-[#18263c] rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500"><option selected="">Indicator</option><option>Strategy</option></select></div><div class="md:col-span-5"><label class="block text-[11px] text-slate-400 mb-1">Description</label><input class="w-full bg-[#080d17] border border-[#18263c] rounded px-2.5 py-1 text-slate-300 focus:outline-none focus:border-blue-500" placeholder="Order block &amp; liquidity sweep detection..." type="text" value="Order block &amp; liquidity sweep detection with ATR volatility filter"/></div></div></section><section class="bg-[#090f1b] border border-[#142034] rounded-xl overflow-hidden shadow-sm"><div class="bg-[#080d16] border-b border-[#121c2c] px-3 py-2 flex items-center justify-between text-xs"><div class="flex items-center space-x-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-mono font-semibold text-slate-200">KEYS_Liquidity_Trap.pine</span><span class="text-[10px] px-1.5 py-0.2 rounded bg-[#0b1322] border border-[#1b2b45] text-blue-300 font-mono">Pine Script v6</span></div><div class="flex items-center space-x-3 text-slate-400 font-mono text-[11px]"><span>Line 24, Col 1 · 842 chars</span><div class="h-3.5 w-[1px] bg-slate-800"></div><div class="flex items-center space-x-1"><button class="p-1 hover:text-white hover:bg-slate-800 rounded transition" title="Copy Script"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><rect height="13" rx="2" ry="2" width="13" x="9" y="9"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg></button><button class="p-1 hover:text-white hover:bg-slate-800 rounded transition" title="Clear Editor"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"></path></svg></button><button class="p-1 hover:text-white hover:bg-slate-800 rounded transition" title="Toggle Fullscreen"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div></div></div><div class="bg-[#070b13] p-3 font-mono text-[11px] leading-relaxed flex overflow-x-auto select-text"><div class="text-slate-600 pr-3 select-none text-right border-r border-[#121c2d] space-y-0.5 font-mono text-[11px]"><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div><div>11</div><div>12</div><div>13</div><div>14</div><div>15</div><div>16</div><div>17</div><div>18</div><div>19</div><div>20</div><div>21</div><div>22</div><div>23</div><div>24</div></div><div class="pl-3.5 flex-1 space-y-0.5 text-slate-300 font-mono whitespace-pre"><div><span class="text-slate-500">//@version=6</span></div><div><span class="text-blue-400 font-medium">indicator</span>(<span class="text-emerald-300">"KEYS Liquidity Trap"</span>, <span class="text-amber-300">overlay</span>=<span class="text-blue-300">true</span>, <span class="text-amber-300">max_labels_count</span>=<span class="text-amber-400">500</span>)</div><div></div><div><span class="text-slate-500">// Inputs &amp; Risk Parameters</span></div><div><span class="text-slate-200">length</span> = <span class="text-blue-400">input.int</span>(<span class="text-amber-400">14</span>, <span class="text-emerald-300">"Lookback Period"</span>, <span class="text-amber-300">minval</span>=<span class="text-amber-400">1</span>)</div><div><span class="text-slate-200">atrMult</span> = <span class="text-blue-400">input.float</span>(<span class="text-amber-400">1.5</span>, <span class="text-emerald-300">"ATR Volatility Buffer"</span>, <span class="text-amber-300">step</span>=<span class="text-amber-400">0.1</span>)</div><div><span class="text-slate-200">src</span> = <span class="text-blue-400">input.source</span>(<span class="text-blue-300">close</span>, <span class="text-emerald-300">"Calculation Source"</span>)</div><div><span class="text-slate-200">filterSweeps</span> = <span class="text-blue-400">input.bool</span>(<span class="text-blue-300">true</span>, <span class="text-emerald-300">"Filter Liquidity Sweeps"</span>)</div><div></div><div><span class="text-slate-500">// Liquidity &amp; Order Block Logic</span></div><div><span class="text-slate-200">highBand</span> = <span class="text-blue-400">ta.highest</span>(<span class="text-blue-300">high</span>, <span class="text-slate-200">length</span>)</div><div><span class="text-slate-200">lowBand</span> = <span class="text-blue-400">ta.lowest</span>(<span class="text-blue-300">low</span>, <span class="text-slate-200">length</span>)</div><div><span class="text-slate-200">atrVal</span> = <span class="text-blue-400">ta.atr</span>(<span class="text-amber-400">14</span>)</div><div></div><div><span class="text-slate-500">// Trap triggers</span></div><div><span class="text-slate-200">sweepBuy</span> = <span class="text-blue-400">ta.crossover</span>(<span class="text-blue-300">close</span>, <span class="text-slate-200">lowBand</span> + (<span class="text-slate-200">atrVal</span> * <span class="text-slate-200">atrMult</span>)) <span class="text-blue-400 font-bold">and</span> <span class="text-slate-200">filterSweeps</span></div><div><span class="text-slate-200">sweepSell</span> = <span class="text-blue-400">ta.crossunder</span>(<span class="text-blue-300">close</span>, <span class="text-slate-200">highBand</span> - (<span class="text-slate-200">atrVal</span> * <span class="text-slate-200">atrMult</span>)) <span class="text-blue-400 font-bold">and</span> <span class="text-slate-200">filterSweeps</span></div><div></div><div><span class="text-slate-500">// Visual signals</span></div><div><span class="text-blue-400">plotshape</span>(<span class="text-slate-200">sweepBuy</span>, <span class="text-amber-300">title</span>=<span class="text-emerald-300">"Trap Buy"</span>, <span class="text-amber-300">style</span>=<span class="text-slate-200">shape.triangleup</span>, <span class="text-amber-300">location</span>=<span class="text-slate-200">location.belowbar</span>, <span class="text-amber-300">color</span>=<span class="text-emerald-400">color.green</span>, <span class="text-amber-300">size</span>=<span class="text-slate-200">size.small</span>, <span class="text-amber-300">text</span>=<span class="text-emerald-300">"BUY"</span>)</div><div><span class="text-blue-400">plotshape</span>(<span class="text-slate-200">sweepSell</span>, <span class="text-amber-300">title</span>=<span class="text-emerald-300">"Trap Sell"</span>, <span class="text-amber-300">style</span>=<span class="text-slate-200">shape.triangledown</span>, <span class="text-amber-300">location</span>=<span class="text-slate-200">location.abovebar</span>, <span class="text-amber-300">color</span>=<span class="text-red-400">color.red</span>, <span class="text-amber-300">size</span>=<span class="text-slate-200">size.small</span>, <span class="text-amber-300">text</span>=<span class="text-red-400">"SELL"</span>)</div></div></div></section><div class="flex flex-wrap items-center justify-between gap-2 bg-[#080e1a] border border-[#131f32] rounded-xl px-3 py-2 text-xs"><div class="flex flex-wrap items-center gap-2"><button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] hover:bg-[#131f33] text-slate-200 font-medium flex items-center space-x-1.5 transition"><svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Validate Script</span></button><button class="px-3.5 py-1.5 rounded-lg bg-[#0066ff] hover:bg-blue-600 text-white font-semibold flex items-center space-x-1.5 shadow-sm transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Save Indicator</span></button><button class="px-3 py-1.5 rounded-lg bg-[#0a1426] border border-blue-500/40 hover:bg-[#10203a] text-blue-300 font-medium flex items-center space-x-1.5 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Update Indicator</span></button><button class="px-3.5 py-1.5 rounded-lg bg-[#00c076] hover:bg-emerald-500 text-black font-bold flex items-center space-x-1.5 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Add to Chart</span></button><button class="px-3 py-1.5 rounded-lg bg-[#0d1524] border border-[#1b2940] hover:bg-[#131f33] text-slate-300 font-medium flex items-center space-x-1.5 transition"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Reset Editor</span></button></div><div class="flex items-center space-x-2 text-[11px] font-mono"><div class="flex items-center space-x-1.5 px-2 py-1 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Indicator Saved Successfully</span></div><span class="text-slate-500">|</span><span class="text-slate-400">Validation: <strong class="text-emerald-400 font-medium">Passed (0 Errors, 0 Warnings)</strong></span></div></div><section class="bg-[#090f1b] border border-[#142034] rounded-xl p-3.5 shadow-sm space-y-3"><div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#121c2d]"><div><div class="flex items-center space-x-2"><span class="text-amber-400"><svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path clip-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" fill-rule="evenodd"></path></svg></span><h3 class="text-xs font-bold text-amber-400 tracking-wide">My Saved Indicators</h3><span class="text-[10px] px-2 py-0.5 rounded bg-[#0d1627] border border-[#1b2940] text-slate-300 font-mono">4 Indicators Saved</span></div><p class="text-[11px] text-slate-400 mt-0.5">Manage custom Pine scripts, compile states, and chart integration</p></div><div class="w-64 relative"><input class="w-full bg-[#080d17] border border-[#18263c] rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500" placeholder="Search saved indicators..." type="text"/></div></div><div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead class="text-[10px] text-slate-400 uppercase font-semibold border-b border-[#121c2d]"><tr><th class="pb-2 px-2">Indicator Name</th><th class="pb-2 px-2">Pine Version</th><th class="pb-2 px-2">Type</th><th class="pb-2 px-2">Last Updated</th><th class="pb-2 px-2">Validation Status</th><th class="pb-2 px-2">Chart Status</th><th class="pb-2 px-2 text-right">Actions</th></tr></thead><tbody class="divide-y divide-[#121c2d] text-slate-300 text-[11px]"><tr class="hover:bg-[#070d18]/50"><td class="py-2.5 px-2 font-semibold text-slate-100 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>KEYS Liquidity Trap</span></td><td class="py-2.5 px-2 font-mono text-slate-400">v6</td><td class="py-2.5 px-2 text-slate-300">Indicator</td><td class="py-2.5 px-2 font-mono text-slate-400">2026-11-02 10:45</td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">Validated</span></td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 text-[10px] font-medium">Chart Ready</span></td><td class="py-2.5 px-2 text-right"><div class="flex items-center justify-end space-x-1"><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Load</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Edit</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Duplicate</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:text-red-400 text-slate-400 text-[10px]">Delete</button><button class="px-2 py-0.5 rounded bg-[#00c076] hover:bg-emerald-500 text-black font-semibold text-[10px]">Add to Chart</button></div></td></tr><tr class="hover:bg-[#070d18]/50"><td class="py-2.5 px-2 font-semibold text-slate-100 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span><span>KEYS v1 Trend &amp; Momentum</span></td><td class="py-2.5 px-2 font-mono text-slate-400">v5</td><td class="py-2.5 px-2 text-slate-300">Strategy</td><td class="py-2.5 px-2 font-mono text-slate-400">2026-11-01 18:20</td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">Backtest Ready</span></td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-blue-950/30 border border-blue-800/40 text-blue-300 text-[10px] font-medium">Active on Chart</span></td><td class="py-2.5 px-2 text-right"><div class="flex items-center justify-end space-x-1"><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Load</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Edit</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Duplicate</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:text-red-400 text-slate-400 text-[10px]">Delete</button><button class="px-2 py-0.5 rounded bg-[#0f1726] border border-[#1c2a42] text-slate-300 text-[10px]">Remove</button></div></td></tr><tr class="hover:bg-[#070d18]/50"><td class="py-2.5 px-2 font-semibold text-slate-100 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span>Dynamic VWAP Bands</span></td><td class="py-2.5 px-2 font-mono text-slate-400">v5</td><td class="py-2.5 px-2 text-slate-300">Indicator</td><td class="py-2.5 px-2 font-mono text-slate-400">2026-10-28 14:10</td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-medium">Saved</span></td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 text-[10px]">Not on Chart</span></td><td class="py-2.5 px-2 text-right"><div class="flex items-center justify-end space-x-1"><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Load</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Edit</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Duplicate</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:text-red-400 text-slate-400 text-[10px]">Delete</button><button class="px-2 py-0.5 rounded bg-[#00c076] hover:bg-emerald-500 text-black font-semibold text-[10px]">Add to Chart</button></div></td></tr><tr class="hover:bg-[#070d18]/50"><td class="py-2.5 px-2 font-semibold text-slate-100 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span><span>Multi-Timeframe OrderFlow</span></td><td class="py-2.5 px-2 font-mono text-slate-400">v6</td><td class="py-2.5 px-2 text-slate-300">Strategy</td><td class="py-2.5 px-2 font-mono text-slate-400">2026-10-24 09:30</td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-red-950/30 border border-red-800/40 text-red-400 text-[10px] font-medium">Unsupported</span></td><td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-500 text-[10px]">Disabled</span></td><td class="py-2.5 px-2 text-right"><div class="flex items-center justify-end space-x-1"><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Load</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Edit</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:bg-[#121f38] text-slate-300 text-[10px]">Duplicate</button><button class="px-1.5 py-0.5 rounded bg-[#0d1627] hover:text-red-400 text-slate-400 text-[10px]">Delete</button><button class="px-2 py-0.5 rounded bg-[#00c076] hover:bg-emerald-500 text-black font-semibold text-[10px]">Add to Chart</button></div></td></tr></tbody></table></div></section><div class="bg-[#081324] border border-[#122847] rounded-lg p-2.5 text-[11px] text-blue-300 flex items-start space-x-2 leading-snug"><span class="text-blue-400 font-bold text-xs">ⓘ</span><div><span class="font-semibold text-blue-200">Engine Integration:</span> Validated indicators automatically expose input parameters in the <span class="text-white font-medium">Indicator Settings</span> tab and register for execution in the <span class="text-white font-medium">Strategy Backtester</span>.</div></div></div>
+<!-- END: LowerConfigurationPanels -->
+</main>
+<!-- END: SettingsAreaWrapper -->
+</body></html>

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KEYS / Bybit Strategy Lab — Backtest Results</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#070a13',
+              card: '#0b1120',
+              border: '#172554',
+              subtle: '#1e293b',
+              accent: '#2563eb',
+              glow: '#3b82f6',
+              emerald: '#10b981',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scrollbars">
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070a13;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+<style data-purpose="glow-and-effects">
+    .glow-blue {
+      box-shadow: 0 0 15px -2px rgba(37, 99, 235, 0.45);
+    }
+    .glow-border-selected {
+      box-shadow: inset 0 0 0 1px #3b82f6, 0 0 12px -2px rgba(59, 130, 246, 0.25);
+    }
+    .equity-glow {
+      filter: drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.35));
+    }
+  </style>
+</head>
+<body class="bg-[#070a12] text-slate-200 font-sans min-h-screen antialiased flex flex-col selection:bg-blue-600 selection:text-white">
+<!-- BEGIN: MainHeader -->
+<header class="w-full bg-[#0b0f19] border-b border-[#172554]/70 px-5 py-2.5 flex items-center justify-between sticky top-0 z-50">
+<!-- Brand Title & Subtitle -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center gap-1.5 font-bold tracking-tight text-white text-base">
+<span class="text-white">KEYS</span>
+<span class="text-slate-500 font-normal">/</span>
+<span class="text-slate-200 font-semibold">Bybit Strategy Lab</span>
+</div>
+<div class="text-[11px] text-slate-400 font-medium">Advanced Backtest · Strategy · Pine Script</div>
+</div>
+</div>
+<!-- Center Navigation Tabs -->
+<nav class="flex items-center gap-1.5 bg-[#070a13] p-1 rounded-xl border border-[#1e293b]" data-purpose="top-navigation">
+<a class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all flex items-center gap-1.5" href="#">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+        Chart &amp; Backtest
+      </a>
+<a class="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 border border-blue-400/40 glow-blue transition-all flex items-center gap-1.5" href="#">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+        Backtest Results
+      </a>
+<a class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all flex items-center gap-1.5" href="#">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+        Positions &amp; Charts
+      </a>
+</nav>
+<!-- Top Right Status & Action Controls -->
+<div class="flex items-center gap-2.5">
+<!-- Ready Badge -->
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        Ready
+      </div>
+<div class="h-4 w-px bg-slate-800 mx-1"></div>
+<!-- Quick Actions -->
+<button class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition border border-transparent hover:border-slate-700" title="Save Workspace">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition border border-transparent hover:border-slate-700" title="Saved Profiles">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition border border-transparent hover:border-slate-700" title="Global Settings">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 w-full px-5 py-4 space-y-4 max-w-[1920px] mx-auto">
+<!-- BEGIN: FilterBarSection -->
+<section class="bg-[#0b1120] border border-[#172554] rounded-xl p-3.5 shadow-sm" data-purpose="filter-bar">
+<div class="flex flex-wrap items-center justify-between gap-3">
+<!-- Input Dropdowns -->
+<div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[700px]">
+<!-- Exchange Select -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Exchange</span>
+<select class="bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[105px]">
+<option value="all">All Exchanges</option>
+<option selected="" value="bybit">Bybit</option>
+<option value="binance">Binance</option>
+<option value="okx">OKX</option>
+<option value="kucoin">KuCoin</option>
+<option value="bitget">Bitget</option>
+</select>
+</div>
+<!-- Symbol Group Select -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Symbol Group</span>
+<select class="bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[180px]">
+<option value="all">All Groups</option>
+<option selected="" value="bybit100">Bybit – Tab 100 (100 Symbols)</option>
+<option value="binance200">Binance – Tab 200 (200 Symbols)</option>
+<option value="defi50">DeFi Top 50</option>
+</select>
+</div>
+<!-- Timeframe Select -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Timeframe</span>
+<select class="bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[85px]">
+<option value="all">All TF</option>
+<option value="1m">1m</option>
+<option selected="" value="5m">5m</option>
+<option value="15m">15m</option>
+<option value="1h">1h</option>
+<option value="4h">4h</option>
+</select>
+</div>
+<!-- Strategy Select -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Strategy</span>
+<select class="bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[130px]">
+<option value="all">All Indicators</option>
+<option selected="" value="keysv1">KEYS v1</option>
+<option value="customv2">Custom v2</option>
+<option value="trendpro">Trend Pro</option>
+<option value="supertrend">SuperTrend</option>
+</select>
+</div>
+<!-- Status Select -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Status</span>
+<select class="bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[100px]">
+<option selected="" value="all">All Status</option>
+<option value="completed">Completed</option>
+<option value="running">Running</option>
+<option value="failed">Failed</option>
+<option value="stopped">Stopped</option>
+</select>
+</div>
+<!-- Date Range Picker Mock -->
+<div class="flex flex-col gap-1">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Date Range</span>
+<div class="flex items-center gap-1.5 bg-[#070a13] border border-[#1e293b] rounded-lg px-2.5 py-1.5 text-xs text-slate-300">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>2026-10-01 — 2026-11-02</span>
+</div>
+</div>
+<!-- Search Input -->
+<div class="flex flex-col gap-1 flex-1 min-w-[150px]">
+<span class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Search</span>
+<div class="relative">
+<input class="w-full bg-[#070a13] border border-[#1e293b] rounded-lg text-xs py-1.5 pl-8 pr-2 text-slate-200 placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Search run ID, strategy, notes..." type="text"/>
+<svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+</div>
+</div>
+<!-- Filter Actions -->
+<div class="flex items-end gap-2 pt-4">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1e293b] bg-[#070a13] hover:bg-slate-800 text-xs font-medium text-slate-300 transition" title="Refresh list">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Refresh
+          </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1e293b] bg-[#070a13] hover:bg-slate-800 text-xs font-medium text-slate-300 transition" title="Export Table as CSV">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Export CSV
+          </button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white glow-blue transition">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            New Backtest
+          </button>
+</div>
+</div>
+</section>
+<!-- END: FilterBarSection -->
+<!-- BEGIN: BacktestRunsTableCard -->
+<section class="bg-[#0b1120] border border-[#172554] rounded-xl overflow-hidden shadow-sm" data-purpose="backtests-table-card">
+<!-- Card Title Bar -->
+<div class="px-4 py-3 border-b border-[#172554]/70 flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<h2 class="text-sm font-semibold text-white tracking-wide">Backtest Runs</h2>
+<p class="text-[11px] text-slate-400">All backtests, results and execution performance</p>
+</div>
+</div>
+<div class="text-xs text-slate-400">
+          Showing <span class="text-slate-200 font-semibold">1 – 8</span> of <span class="text-slate-200 font-semibold">489</span> Backtests
+        </div>
+</div>
+<!-- Responsive Table Container -->
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs text-slate-300 border-collapse whitespace-nowrap">
+<thead class="bg-[#070a13] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#1e293b]">
+<tr>
+<th class="py-2.5 px-3 font-semibold text-center w-8" scope="col">#</th>
+<th class="py-2.5 px-3 font-semibold" scope="col">Run ID</th>
+<th class="py-2.5 px-3 font-semibold" scope="col">Exchange</th>
+<th class="py-2.5 px-3 font-semibold" scope="col">Symbol Group</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">TF</th>
+<th class="py-2.5 px-3 font-semibold" scope="col">Strategy</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">Symbols</th>
+<th class="py-2.5 px-3 font-semibold text-right" scope="col">Signals</th>
+<th class="py-2.5 px-3 font-semibold text-right" scope="col">Trades (O/C)</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">W / L</th>
+<th class="py-2.5 px-3 font-semibold text-right" scope="col">Net PnL</th>
+<th class="py-2.5 px-3 font-semibold text-right" scope="col">Final Balance</th>
+<th class="py-2.5 px-3 font-semibold text-right" scope="col">Max DD</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">Status</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">Duration</th>
+<th class="py-2.5 px-3 font-semibold text-center" scope="col">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#172554]/40 font-mono text-[12px]">
+<!-- Row 1 (Selected Row) -->
+<tr class="bg-blue-950/20 glow-border-selected transition">
+<td class="py-2 px-3 text-center text-blue-400 font-bold">1</td>
+<td class="py-2 px-3 font-semibold text-blue-300 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                BT-0489
+              </td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-amber-400"></span> Bybit
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 100</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">5m</span></td>
+<td class="py-2 px-3 font-sans text-slate-200 font-medium">KEYS v1</td>
+<td class="py-2 px-3 text-center text-slate-300">100</td>
+<td class="py-2 px-3 text-right text-slate-300">1,240</td>
+<td class="py-2 px-3 text-right text-slate-200 font-medium">842</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">576</span> / <span class="text-rose-400">266</span></td>
+<td class="py-2 px-3 text-right font-bold text-emerald-400">+178.50 <span class="text-[10px] text-emerald-500 font-normal">(+59.5%)</span></td>
+<td class="py-2 px-3 text-right font-medium text-white">$478.50</td>
+<td class="py-2 px-3 text-right text-rose-400 font-medium">-12.60%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                  Completed
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">3m 24s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-900/40 transition">
+<td class="py-2 px-3 text-center text-slate-500">2</td>
+<td class="py-2 px-3 font-semibold text-slate-300">BT-0488</td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-yellow-400"></span> Binance
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 200</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">15m</span></td>
+<td class="py-2 px-3 font-sans text-slate-300">Custom v2</td>
+<td class="py-2 px-3 text-center text-slate-300">200</td>
+<td class="py-2 px-3 text-right text-slate-300">1,890</td>
+<td class="py-2 px-3 text-right text-slate-200">1,265</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">901</span> / <span class="text-rose-400">364</span></td>
+<td class="py-2 px-3 text-right font-bold text-emerald-400">+312.40 <span class="text-[10px] text-emerald-500 font-normal">(+104.1%)</span></td>
+<td class="py-2 px-3 text-right text-white">$612.40</td>
+<td class="py-2 px-3 text-right text-rose-400">-18.90%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                  Completed
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">5m 12s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-900/40 transition">
+<td class="py-2 px-3 text-center text-slate-500">3</td>
+<td class="py-2 px-3 font-semibold text-slate-300">BT-0487</td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span> OKX
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 100</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">1h</span></td>
+<td class="py-2 px-3 font-sans text-slate-300">Trend Pro</td>
+<td class="py-2 px-3 text-center text-slate-300">100</td>
+<td class="py-2 px-3 text-right text-slate-300">620</td>
+<td class="py-2 px-3 text-right text-slate-200">419</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">230</span> / <span class="text-rose-400">189</span></td>
+<td class="py-2 px-3 text-right font-bold text-rose-400">-45.20 <span class="text-[10px] text-rose-500 font-normal">(-15.1%)</span></td>
+<td class="py-2 px-3 text-right text-white">$254.80</td>
+<td class="py-2 px-3 text-right text-rose-400">-22.30%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                  Completed
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">2m 45s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-900/40 transition">
+<td class="py-2 px-3 text-center text-slate-500">4</td>
+<td class="py-2 px-3 font-semibold text-slate-300">BT-0486</td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-amber-400"></span> Bybit
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 200</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">5m</span></td>
+<td class="py-2 px-3 font-sans text-slate-300">RSI+EMA</td>
+<td class="py-2 px-3 text-center text-slate-300">200</td>
+<td class="py-2 px-3 text-right text-slate-300">1,080</td>
+<td class="py-2 px-3 text-right text-slate-200">730</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">465</span> / <span class="text-rose-400">265</span></td>
+<td class="py-2 px-3 text-right font-bold text-emerald-400">+97.80 <span class="text-[10px] text-emerald-500 font-normal">(+32.6%)</span></td>
+<td class="py-2 px-3 text-right text-white">$397.80</td>
+<td class="py-2 px-3 text-right text-rose-400">-14.10%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                  Completed
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">3m 10s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+<!-- Row 5 (Running State) -->
+<tr class="hover:bg-slate-900/40 transition">
+<td class="py-2 px-3 text-center text-slate-500">5</td>
+<td class="py-2 px-3 font-semibold text-slate-300">BT-0485</td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-yellow-400"></span> Binance
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 100</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">15m</span></td>
+<td class="py-2 px-3 font-sans text-slate-300">SuperTrend</td>
+<td class="py-2 px-3 text-center text-slate-300">100</td>
+<td class="py-2 px-3 text-right text-slate-300">1,450</td>
+<td class="py-2 px-3 text-right text-slate-200">1,088</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">719</span> / <span class="text-rose-400">369</span></td>
+<td class="py-2 px-3 text-right font-bold text-emerald-400">+210.10 <span class="text-[10px] text-emerald-500 font-normal">(+70.0%)</span></td>
+<td class="py-2 px-3 text-right text-white">$510.10</td>
+<td class="py-2 px-3 text-right text-rose-400">-16.80%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-950/80 text-blue-400 border border-blue-500/40">
+<span class="w-1 h-1 rounded-full bg-blue-400 animate-ping"></span>
+                  Running
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">4m 02s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-slate-900/40 transition">
+<td class="py-2 px-3 text-center text-slate-500">6</td>
+<td class="py-2 px-3 font-semibold text-slate-300">BT-0484</td>
+<td class="py-2 px-3 font-sans">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-slate-700 text-xs">
+<span class="w-2 h-2 rounded-full bg-amber-400"></span> Bybit
+                </span>
+</td>
+<td class="py-2 px-3 font-sans text-slate-300">Tab 100</td>
+<td class="py-2 px-3 text-center font-sans"><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">1h</span></td>
+<td class="py-2 px-3 font-sans text-slate-300">KEYS v1</td>
+<td class="py-2 px-3 text-center text-slate-300">100</td>
+<td class="py-2 px-3 text-right text-slate-300">540</td>
+<td class="py-2 px-3 text-right text-slate-200">356</td>
+<td class="py-2 px-3 text-center text-slate-300"><span class="text-emerald-400">184</span> / <span class="text-rose-400">172</span></td>
+<td class="py-2 px-3 text-right font-bold text-rose-400">-68.30 <span class="text-[10px] text-rose-500 font-normal">(-22.8%)</span></td>
+<td class="py-2 px-3 text-right text-white">$231.70</td>
+<td class="py-2 px-3 text-right text-rose-400">-27.90%</td>
+<td class="py-2 px-3 text-center font-sans">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                  Completed
+                </span>
+</td>
+<td class="py-2 px-3 text-center font-sans text-slate-400 text-xs">2m 18s</td>
+<td class="py-2 px-3 text-center font-sans">
+<div class="inline-flex items-center gap-1.5 text-slate-400">
+<button class="hover:text-blue-400 p-1" title="View Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-slate-200 p-1" title="Duplicate Parameters"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="hover:text-rose-400 p-1" title="Delete Run"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="px-4 py-3 bg-[#070a13] border-t border-[#1e293b] flex items-center justify-between text-xs text-slate-400">
+<div>
+          Showing page <span class="text-white font-medium">1</span> of <span class="text-white font-medium">49</span>
+</div>
+<!-- Pagination Controls -->
+<div class="flex items-center gap-1.5">
+<button class="px-2 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300 disabled:opacity-40" disabled="">&lt;</button>
+<button class="px-2.5 py-1 rounded bg-blue-600 text-white font-semibold">1</button>
+<button class="px-2.5 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">2</button>
+<button class="px-2.5 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">3</button>
+<button class="px-2.5 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">4</button>
+<button class="px-2.5 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">5</button>
+<span class="px-1 text-slate-600">...</span>
+<button class="px-2 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">62</button>
+<button class="px-2 py-1 rounded bg-[#0b1120] border border-[#1e293b] hover:bg-slate-800 text-slate-300">&gt;</button>
+</div>
+<!-- Rows per page selector -->
+<div class="flex items-center gap-2">
+<span>Rows per page:</span>
+<select class="bg-[#0b1120] border border-[#1e293b] text-slate-200 text-xs rounded px-2 py-1 focus:ring-0 focus:border-blue-500">
+<option>10</option>
+<option>25</option>
+<option>50</option>
+</select>
+</div>
+</div>
+</section>
+<!-- END: BacktestRunsTableCard -->
+<!-- BEGIN: SelectedBacktestDetailsCard -->
+<section class="bg-[#0b1120] border border-[#172554] rounded-xl p-4 shadow-sm" data-purpose="selected-backtest-card">
+<!-- Card Header with Sub-tabs -->
+<div class="flex flex-wrap items-center justify-between pb-3.5 mb-4 border-b border-[#172554]/70 gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h2 class="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
+            Selected Backtest Details — <span class="text-blue-400 font-mono">BT-0489</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">Completed</span>
+</h2>
+</div>
+<!-- Sub Tabs -->
+<div class="flex items-center gap-1 bg-[#070a13] p-1 rounded-lg border border-[#1e293b] text-xs">
+<button class="px-3 py-1 rounded-md font-medium text-white bg-blue-600 glow-blue transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Summary
+          </button>
+<button class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Settings
+          </button>
+<button class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            PnL Rules
+          </button>
+<button class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Indicator Params
+          </button>
+<button class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Trades
+          </button>
+<button class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition flex items-center gap-1.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Equity Curve
+          </button>
+</div>
+</div>
+<!-- Split Layout: Left Details Metrics & Right Chart -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<!-- Left Details Panel -->
+<div class="space-y-3" data-purpose="metrics-summary">
+<!-- Metrics Overview Grid -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+<!-- Box 1 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Initial Capital</span>
+<div class="text-lg font-bold font-mono text-white mt-0.5">$300.00</div>
+</div>
+<!-- Box 2 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Final Balance</span>
+<div class="text-lg font-bold font-mono text-white mt-0.5">$478.50</div>
+</div>
+<!-- Box 3 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Net PnL</span>
+<div class="text-lg font-bold font-mono text-emerald-400 mt-0.5">+$178.50</div>
+</div>
+<!-- Box 4 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">ROI</span>
+<div class="text-lg font-bold font-mono text-emerald-400 mt-0.5">+59.50%</div>
+</div>
+</div>
+<!-- Secondary Metrics Grid -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+<!-- Box 5 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Total Trades</span>
+<div class="text-base font-bold font-mono text-white mt-0.5">842</div>
+<span class="text-[10px] text-slate-400">Wins: 576 / Loss: 266</span>
+</div>
+<!-- Box 6 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Win Rate</span>
+<div class="text-base font-bold font-mono text-emerald-400 mt-0.5">68.40%</div>
+<span class="text-[10px] text-slate-400">Profit Factor: 2.14</span>
+</div>
+<!-- Box 7 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Max Drawdown</span>
+<div class="text-base font-bold font-mono text-rose-400 mt-0.5">-12.60%</div>
+<span class="text-[10px] text-slate-400">Peak to trough</span>
+</div>
+<!-- Box 8 -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-2.5">
+<span class="text-[10px] text-slate-400 uppercase font-semibold">Cycles / Mode</span>
+<div class="text-base font-bold font-mono text-white mt-0.5">6</div>
+<span class="text-[10px] text-slate-400">50x Cross Margin</span>
+</div>
+</div>
+<!-- Detailed Key/Value Configuration Grid -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-3 text-xs divide-y divide-[#1e293b]/60">
+<div class="flex justify-between py-1.5">
+<span class="text-slate-400 font-medium">Exchange / Execution</span>
+<span class="text-slate-200 font-mono flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-amber-400"></span> Bybit Perpetual (USDT)
+              </span>
+</div>
+<div class="flex justify-between py-1.5">
+<span class="text-slate-400 font-medium">Symbol Universe</span>
+<span class="text-slate-200 font-mono">Bybit – Tab 100 (100 Symbols)</span>
+</div>
+<div class="flex justify-between py-1.5">
+<span class="text-slate-400 font-medium">Position Sizing &amp; Margin</span>
+<span class="text-slate-200 font-mono">$10.00 / Trade · Max Concurrent: 100</span>
+</div>
+<div class="flex justify-between py-1.5">
+<span class="text-slate-400 font-medium">Gross Profit vs Gross Loss</span>
+<span class="text-slate-200 font-mono">
+<span class="text-emerald-400">+$245.80</span> / <span class="text-rose-400">-$67.30</span>
+</span>
+</div>
+</div>
+<!-- Pill Tags of Strategy Components -->
+<div class="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+<span class="px-2.5 py-1 rounded bg-[#070a13] border border-[#172554] text-slate-300">
+<span class="text-blue-400 font-semibold">Indicator:</span> KEYS v1 (21 Params)
+            </span>
+<span class="px-2.5 py-1 rounded bg-[#070a13] border border-[#172554] text-slate-300">
+<span class="text-blue-400 font-semibold">PnL Rules:</span> 5-Stage Trailing
+            </span>
+<span class="px-2.5 py-1 rounded bg-[#070a13] border border-[#172554] text-slate-300">
+<span class="text-blue-400 font-semibold">Saved Universe:</span> Bybit 100
+            </span>
+<span class="px-2.5 py-1 rounded bg-[#070a13] border border-[#172554] text-slate-300">
+<span class="text-blue-400 font-semibold">Cycle:</span> 1-7 Days
+            </span>
+</div>
+</div>
+<!-- Right Side: Interactive Styled SVG Equity Curve Chart -->
+<div class="bg-[#070a13] border border-[#1e293b] rounded-lg p-3 flex flex-col justify-between" data-purpose="equity-curve-card">
+<!-- Chart Header -->
+<div class="flex items-center justify-between pb-2 border-b border-[#1e293b]/60">
+<div class="flex items-center gap-2">
+<span class="text-xs font-semibold text-white">Equity Curve</span>
+<span class="text-[11px] text-slate-400">Capital Growth (Oct 03 – Oct 31)</span>
+</div>
+<div class="flex items-center gap-2 text-xs font-mono">
+<span class="text-emerald-400 font-bold">$478.50 Max</span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-400">$300.00 Base</span>
+</div>
+</div>
+<!-- SVG Chart Area -->
+<div class="relative w-full h-[220px] my-2">
+<!-- Grid Lines and Y-Axis Labels -->
+<div class="absolute inset-0 flex flex-col justify-between text-[10px] font-mono text-slate-500 pointer-events-none pr-2">
+<div class="flex items-center justify-between border-b border-slate-800/50 w-full pb-1">
+<span>$500</span>
+</div>
+<div class="flex items-center justify-between border-b border-slate-800/50 w-full pb-1">
+<span>$450</span>
+</div>
+<div class="flex items-center justify-between border-b border-slate-800/50 w-full pb-1">
+<span>$400</span>
+</div>
+<div class="flex items-center justify-between border-b border-slate-800/50 w-full pb-1">
+<span>$350</span>
+</div>
+<div class="flex items-center justify-between border-b border-slate-800/50 w-full pb-1">
+<span class="text-emerald-500 font-semibold">$300 Initial</span>
+</div>
+</div>
+<!-- SVG Vector Plot -->
+<svg class="w-full h-full absolute inset-0 overflow-visible" preserveaspectratio="none" viewbox="0 0 600 200">
+<defs>
+<lineargradient id="equityGrad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10b981" stop-opacity="0.38"></stop>
+<stop offset="60%" stop-color="#10b981" stop-opacity="0.10"></stop>
+<stop offset="100%" stop-color="#10b981" stop-opacity="0.0"></stop>
+</lineargradient>
+<filter id="glow">
+<fegaussianblur result="coloredBlur" stddeviation="2"></fegaussianblur>
+<femerge>
+<femergenode in="coloredBlur"></femergenode>
+<femergenode in="SourceGraphic"></femergenode>
+</femerge>
+</filter>
+</defs>
+<!-- Filled Area Under Curve -->
+<polygon fill="url(#equityGrad)" points="
+                0,185 
+                25,182 50,175 75,178 100,165 125,150 150,158 175,142 
+                200,135 225,145 250,120 275,105 300,118 325,110 350,98 
+                375,90 400,95 425,82 450,78 475,85 500,65 525,58 
+                550,45 575,32 600,18 
+                600,195 0,195"></polygon>
+<!-- Stroke Line Curve -->
+<polyline fill="none" filter="url(#glow)" points="
+                0,185 
+                25,182 50,175 75,178 100,165 125,150 150,158 175,142 
+                200,135 225,145 250,120 275,105 300,118 325,110 350,98 
+                375,90 400,95 425,82 450,78 475,85 500,65 525,58 
+                550,45 575,32 600,18" stroke="#10b981" stroke-width="2.5"></polyline>
+<!-- Peak Marker Indicator -->
+<circle cx="600" cy="18" fill="#34d399" r="4.5" stroke="#ffffff" stroke-width="1.5"></circle>
+</svg>
+<!-- Tooltip Mock on Current Peak -->
+<div class="absolute right-0 top-0 transform translate-x-2 -translate-y-2 bg-[#0b1120] border border-emerald-500/50 rounded px-2 py-1 text-[11px] shadow-lg pointer-events-none">
+<span class="text-slate-400 font-mono">Oct 31:</span> <span class="text-emerald-400 font-bold font-mono">$478.50 (+59.5%)</span>
+</div>
+</div>
+<!-- X-Axis Timeline Dates -->
+<div class="flex items-center justify-between text-[11px] font-mono text-slate-400 pt-1.5 border-t border-[#1e293b]/60">
+<span>Oct 03</span>
+<span>Oct 07</span>
+<span>Oct 11</span>
+<span>Oct 15</span>
+<span>Oct 19</span>
+<span>Oct 23</span>
+<span>Oct 27</span>
+<span>Oct 31</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: SelectedBacktestDetailsCard -->
+<!-- BEGIN: RunNotesAndLogsCard -->
+<section class="bg-[#0b1120] border border-[#172554] rounded-xl overflow-hidden shadow-sm" data-purpose="run-logs">
+<div class="px-4 py-2.5 bg-[#070a13] border-b border-[#172554]/70 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-xs font-semibold text-white tracking-wide">Run Notes / Log Preview</span>
+</div>
+<div class="flex items-center gap-3 text-[11px] text-slate-400">
+<span class="flex items-center gap-1 font-mono"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Engine: Bybit v4.2.1-prod</span>
+<span class="text-slate-600">|</span>
+<span class="font-mono">Execution latency: 12ms</span>
+</div>
+</div>
+<!-- Terminal Log Body -->
+<div class="p-3.5 font-mono text-[11px] leading-relaxed text-slate-300 space-y-1 bg-[#060911]/90">
+<div class="flex items-start gap-2">
+<span class="text-slate-500">[2026-11-02 10:24:02.108]</span>
+<span class="text-blue-400">[INFO]</span>
+<span>Engine initialized for Bybit Perpetual (100 symbols loaded via 'Bybit – Tab 100').</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-slate-500">[2026-11-02 10:24:05.441]</span>
+<span class="text-blue-400">[INFO]</span>
+<span>Strategy compilation completed: <span class="text-amber-300">'KEYS v1'</span> with 5-stage trailing PnL matrix [50%-&gt;80% @ 30%, 81%-&gt;120% @ 30%, 121%-&gt;150% @ 30%, 151%-&gt;200% @ 30%, 201%-&gt;500% @ 30%].</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-slate-500">[2026-11-02 10:24:18.902]</span>
+<span class="text-cyan-400">[DATA]</span>
+<span>Backtest historical stream: 8,640 candles processed per symbol on 5m timeframe. 1,240 signals detected, 842 trades accepted (Leverage 50x Cross).</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-slate-500">[2026-11-02 10:24:26.510]</span>
+<span class="text-emerald-400">[SUCCESS]</span>
+<span>Backtest run <span class="text-blue-300 font-bold">BT-0489</span> concluded. Initial: <span class="text-white">$300.00</span> | Final Balance: <span class="text-white font-bold">$478.50</span> | Net PnL: <span class="text-emerald-400 font-bold">+$178.50 (+59.50%)</span> | Win Rate: <span class="text-emerald-400">68.40%</span> | Max Drawdown: <span class="text-rose-400">-12.60%</span>. Artifacts cached.</span>
+</div>
+</div>
+</section>
+<!-- END: RunNotesAndLogsCard -->
+</main>
+<!-- END: MainContent -->
+</body></html>

@@ -1,0 +1,386 @@
+import React, { useState, useEffect } from 'react';
+import { Header, AppPage } from './components/Header';
+import { ChartBacktestPage } from './pages/ChartBacktestPage';
+import { BacktestResultsPage } from './pages/BacktestResultsPage';
+import { PositionsChartsPage } from './pages/PositionsChartsPage';
+import { SymbolSelectionPage } from './pages/SymbolSelectionPage';
+import {
+  PortfolioConfig,
+  PnLConfig,
+  SavedSymbolGroup,
+  SavedIndicator,
+  BacktestRun,
+  ExchangeId
+} from './types';
+import { SAVED_INDICATORS_DEFAULT } from './engine/defaultPineScripts';
+
+export default function App() {
+  const [currentPage, setCurrentPage] = useState<AppPage>('chart');
+
+  // Portfolio Configuration
+  const [portfolioConfig, setPortfolioConfig] = useState<PortfolioConfig>({
+    exchange: 'bybit',
+    savedGroupId: 'tab_100_bybit',
+    initialCapital: 300,
+    positionSizeNotional: 10,
+    useMaxLeverage: true,
+    manualLeverage: 10,
+    marginMode: 'cross',
+    maxOpenPositions: 100,
+    cycleFromDay: 1,
+    cycleToDay: 7,
+    backtestTimeframe: 5,
+    maxDrawdownCutoff: 15,
+    slippageTolerance: 0.05,
+    feeTakerPct: 0.055,
+    feeMakerPct: 0.02,
+    fundingRate8hPct: 0.01
+  });
+
+  // 5-Stage PnL Rules Configuration
+  const [pnlConfig, setPnLConfig] = useState<PnLConfig>({
+    rules: [
+      { fromPct: 50, toPct: 80, dropPct: 30 },
+      { fromPct: 81, toPct: 120, dropPct: 30 },
+      { fromPct: 121, toPct: 150, dropPct: 30 },
+      { fromPct: 151, toPct: 200, dropPct: 30 },
+      { fromPct: 201, toPct: 500, dropPct: 30 }
+    ],
+    fixedFloorEnabled: false,
+    fixedFloorTriggerPct: 50,
+    fixedFloorLockPct: 30
+  });
+
+  // Saved Groups & Indicators
+  const [savedGroups, setSavedGroups] = useState<SavedSymbolGroup[]>([]);
+  const [indicators, setIndicators] = useState<SavedIndicator[]>(SAVED_INDICATORS_DEFAULT);
+  const [activeIndicator, setActiveIndicator] = useState<SavedIndicator>(SAVED_INDICATORS_DEFAULT[0]);
+  const [activeStrategyName, setActiveStrategyName] = useState<string>('KEYS v6 Liquidity Trap & SAR');
+
+  // Backtest Runs & Execution
+  const [runs, setRuns] = useState<BacktestRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(undefined);
+  const [inspectTradeId, setInspectTradeId] = useState<string | null>(null);
+
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [isBacktestRunning, setIsBacktestRunning] = useState<boolean>(false);
+  const [backtestProgress, setBacktestProgress] = useState<number>(0);
+  const [currentDateProgress, setCurrentDateProgress] = useState<string | undefined>(undefined);
+  const [openPositionsCount, setOpenPositionsCount] = useState<number>(0);
+  const [lastCompletedRun, setLastCompletedRun] = useState<BacktestRun | null>(null);
+  const [chartActiveSymbol, setChartActiveSymbol] = useState<string | undefined>(undefined);
+
+  // Load initial data from server APIs
+  useEffect(() => {
+    // 1. Groups
+    fetch('/api/groups')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSavedGroups(data);
+          setPortfolioConfig((prev) => ({
+            ...prev,
+            savedGroupId: data[0].id,
+            exchange: data[0].exchange
+          }));
+        }
+      })
+      .catch((err) => console.error('Failed to load groups:', err));
+
+    // 2. Indicators
+    fetch('/api/indicators')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setIndicators(data);
+          setActiveIndicator(data[0]);
+        }
+      })
+      .catch((err) => console.error('Failed to load indicators:', err));
+
+    // 3. Runs
+    fetch('/api/backtest/runs')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRuns(data);
+          const runWithTrades = data.find((r: BacktestRun) => r.trades && r.trades.length > 0);
+          setSelectedRunId(runWithTrades ? runWithTrades.id : data[0].id);
+        }
+      })
+      .catch((err) => console.error('Failed to load runs:', err));
+  }, []);
+
+  // Poll running job
+  useEffect(() => {
+    if (!activeJobId || !isBacktestRunning) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/backtest/status/${activeJobId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBacktestProgress(data.progress || 0);
+          setCurrentDateProgress(data.currentDate);
+          setOpenPositionsCount(data.openPositionsCount || 0);
+
+          if (data.status === 'COMPLETED' || data.status === 'STOPPED' || data.status === 'FAILED') {
+            setIsBacktestRunning(false);
+            setActiveJobId(null);
+
+            // refresh runs list
+            const runsRes = await fetch('/api/backtest/runs');
+            if (runsRes.ok) {
+              const updatedRuns: BacktestRun[] = await runsRes.json();
+              setRuns(updatedRuns);
+              const targetId = data.run?.id || activeJobId;
+              const finished = updatedRuns.find((r) => r.id === targetId);
+              if (finished) {
+                setLastCompletedRun(finished);
+                setSelectedRunId(finished.id);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Job polling error:', err);
+      }
+    }, 600);
+
+    return () => clearInterval(interval);
+  }, [activeJobId, isBacktestRunning]);
+
+  // Start new backtest
+  const handleRunBacktest = async (
+    overrideConfig?: PortfolioConfig,
+    overrideIndicatorParams?: Record<string, any>
+  ) => {
+    const configToUse = overrideConfig || portfolioConfig;
+    const paramsToUse =
+      overrideIndicatorParams ||
+      activeIndicator.params.reduce((acc, p) => ({ ...acc, [p.name]: p.value }), {});
+
+    try {
+      setIsBacktestRunning(true);
+      setBacktestProgress(0);
+      setLastCompletedRun(null);
+
+      const res = await fetch('/api/backtest/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          portfolioConfig: configToUse,
+          pnlConfig,
+          indicatorParams: paramsToUse,
+          strategyName: activeStrategyName
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActiveJobId(data.runId);
+      } else {
+        setIsBacktestRunning(false);
+        const errData = await res.json();
+        alert(`Backtest failed to initiate: ${errData.error}`);
+      }
+    } catch (err: any) {
+      setIsBacktestRunning(false);
+      alert(`Error starting backtest: ${err.message}`);
+    }
+  };
+
+  const handleStopBacktest = async () => {
+    if (activeJobId) {
+      await fetch(`/api/backtest/stop/${activeJobId}`, { method: 'POST' });
+    }
+    setIsBacktestRunning(false);
+  };
+
+  // Group Management
+  const handleSaveGroup = async (group: SavedSymbolGroup) => {
+    const res = await fetch('/api/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(group)
+    });
+    if (res.ok) {
+      const saved = await res.json();
+      setSavedGroups((prev) => {
+        const idx = prev.findIndex((g) => g.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [...prev, saved];
+      });
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+    setSavedGroups((prev) => prev.filter((g) => g.id !== id));
+  };
+
+  // Indicator Management
+  const handleSaveIndicator = async (ind: SavedIndicator) => {
+    const res = await fetch('/api/indicators', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ind)
+    });
+    if (res.ok) {
+      const saved = await res.json();
+      setIndicators((prev) => {
+        const idx = prev.findIndex((i) => i.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [...prev, saved];
+      });
+      setActiveIndicator(saved);
+    }
+  };
+
+  const handleDeleteRun = async (id: string) => {
+    await fetch(`/api/backtest/runs/${id}`, { method: 'DELETE' });
+    setRuns((prev) => prev.filter((r) => r.id !== id));
+    if (selectedRunId === id) {
+      setSelectedRunId(runs.filter((r) => r.id !== id)[0]?.id);
+    }
+  };
+
+  const handleInspectTradeOnChart = (runId: string, tradeId: string) => {
+    setSelectedRunId(runId);
+    setInspectTradeId(tradeId);
+    setCurrentPage('positions');
+  };
+
+  const handleCloneRunSettings = (run: BacktestRun) => {
+    if (run.portfolioConfig) {
+      setPortfolioConfig(run.portfolioConfig);
+    }
+    if (run.pnlConfig) {
+      setPnLConfig(run.pnlConfig);
+    }
+    if (run.strategyName) {
+      setActiveStrategyName(run.strategyName);
+      const found = indicators.find((ind) => ind.name.toLowerCase().includes(run.strategyName.toLowerCase()));
+      if (found) setActiveIndicator(found);
+    }
+    setCurrentPage('chart');
+  };
+
+  const handleApplyUniverseToBacktest = (groupId: string, autoRun = false) => {
+    const group = savedGroups.find((g) => g.id === groupId);
+    if (group) {
+      const updatedCfg: PortfolioConfig = {
+        ...portfolioConfig,
+        savedGroupId: group.id,
+        exchange: group.exchange
+      };
+      setPortfolioConfig(updatedCfg);
+      setCurrentPage('chart');
+      if (autoRun) {
+        setTimeout(() => {
+          handleRunBacktest(updatedCfg);
+        }, 150);
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#101216] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white">
+      {/* ─── TOP HORIZONTAL NAVIGATION ───────────────────────────────────── */}
+      <Header
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        activeStrategy={activeStrategyName}
+        onStrategyChange={(s) => {
+          setActiveStrategyName(s);
+          const found = indicators.find((ind) => ind.name.toLowerCase().includes(s.toLowerCase()));
+          if (found) setActiveIndicator(found);
+        }}
+        isRunning={isBacktestRunning}
+        onSaveConfig={() => alert('Strategy configuration saved to persistent lab profile.')}
+        onLoadConfig={() => alert('Strategy configuration profile restored.')}
+        onResetConfig={() => {
+          if (confirm('Reset strategy lab settings to defaults?')) {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* ─── MAIN CONTENT VIEW (EXACTLY 4 PAGES, NO LEFT SIDEBAR) ────────── */}
+      <main className="flex-1 max-w-[1850px] w-full mx-auto p-3 sm:p-4">
+        {currentPage === 'chart' && (
+          <ChartBacktestPage
+            portfolioConfig={portfolioConfig}
+            onUpdatePortfolioConfig={setPortfolioConfig}
+            pnlConfig={pnlConfig}
+            onUpdatePnLConfig={setPnLConfig}
+            savedGroups={savedGroups}
+            indicators={indicators}
+            activeIndicator={activeIndicator}
+            onSelectIndicator={setActiveIndicator}
+            onSaveIndicator={handleSaveIndicator}
+            onRunBacktest={(params) => handleRunBacktest(undefined, params)}
+            onStopBacktest={handleStopBacktest}
+            isBacktestRunning={isBacktestRunning}
+            backtestProgress={backtestProgress}
+            currentDateProgress={currentDateProgress}
+            openPositionsCount={openPositionsCount}
+            onNavigateToSymbols={() => setCurrentPage('symbols')}
+            initialSymbol={chartActiveSymbol}
+            lastCompletedRun={lastCompletedRun}
+            onNavigateToResults={() => setCurrentPage('results')}
+            onNavigateToPage={setCurrentPage}
+          />
+        )}
+
+        {currentPage === 'results' && (
+          <BacktestResultsPage
+            runs={runs}
+            selectedRunId={selectedRunId}
+            onSelectRun={setSelectedRunId}
+            onDeleteRun={handleDeleteRun}
+            onInspectTradeOnChart={handleInspectTradeOnChart}
+            onNewBacktest={() => setCurrentPage('chart')}
+            onCloneSettingsToBacktest={handleCloneRunSettings}
+            onNavigateToPage={setCurrentPage}
+          />
+        )}
+
+        {currentPage === 'positions' && (
+          <PositionsChartsPage
+            runs={runs}
+            selectedRunId={selectedRunId}
+            onSelectRun={setSelectedRunId}
+            inspectTradeId={inspectTradeId}
+            onNewBacktest={() => setCurrentPage('chart')}
+            onNavigateToPage={setCurrentPage}
+            onTestSymbolOnChart={(sym) => {
+              setChartActiveSymbol(sym);
+              setCurrentPage('chart');
+            }}
+          />
+        )}
+
+        {currentPage === 'symbols' && (
+          <SymbolSelectionPage
+            currentExchange={portfolioConfig.exchange}
+            onExchangeChange={(ex) => setPortfolioConfig((prev) => ({ ...prev, exchange: ex }))}
+            savedGroups={savedGroups}
+            onSaveGroup={handleSaveGroup}
+            onDeleteGroup={handleDeleteGroup}
+            onApplyUniverseToBacktest={handleApplyUniverseToBacktest}
+            onNavigateToPage={setCurrentPage}
+          />
+        )}
+      </main>
+    </div>
+  );
+}

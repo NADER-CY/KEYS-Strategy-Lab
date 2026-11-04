@@ -1,0 +1,6 @@
+{
+  "name": "KEYS Strategy Lab — Multi-Exchange Backtest Platform",
+  "description": "Production-oriented cryptocurrency futures strategy backtesting platform with multi-exchange integration, Pine Script indicator engine, portfolio cycle management, and 5-stage PnL drop protection rules.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
