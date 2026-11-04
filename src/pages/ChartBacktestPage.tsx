@@ -997,6 +997,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 <span className="text-sm text-slate-300 font-medium">
                   Total Active Rule Stages: <strong className="text-white font-mono">5 Ranges</strong>
                 </span>
+                <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     const defaults: PnLRuleRow[] = [
@@ -1012,17 +1013,16 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 >
                   Reset Default 5 Ranges
                 </button>
+                <button
+                  onClick={handleSavePnlRules}
+                  disabled={savingPnlRules}
+                  className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
+                >
+                  <span className="material-symbols-outlined !text-[17px]">save</span>
+                  <span>{savingPnlRules ? 'Saving…' : 'Save PnL Rules'}</span>
+                </button>
+                </div>
               </div>
-            </div>
-            <div className="flex justify-end pt-2 border-b border-[#26303d] pb-5">
-              <button
-                onClick={handleSavePnlRules}
-                disabled={savingPnlRules}
-                className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
-              >
-                <span className="material-symbols-outlined !text-[17px]">save</span>
-                <span>{savingPnlRules ? 'Saving…' : 'Save PnL Rules'}</span>
-              </button>
             </div>
           </div>
         )}
