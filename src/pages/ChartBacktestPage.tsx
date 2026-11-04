@@ -162,8 +162,12 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     const fetchCandles = async () => {
       setLoadingChart(true);
       try {
+        // Display a small recent window immediately when switching markets.
+        // A selected 3m/1y history is fetched in the background and merged
+        // only if the requested market/timeframe is still active.
+        const quickCount = Math.min(chartHistoryBars, 400);
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${quickCount}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -178,6 +182,27 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         console.error('Error fetching candles:', err);
       } finally {
         if (!isCancelled) setLoadingChart(false);
+      }
+
+      if (chartHistoryBars > 400 && !isCancelled) {
+        try {
+          const res = await fetch(
+            `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=${chartHistoryBars}`
+          );
+          if (res.ok) {
+            const history = await res.json();
+            if (!isCancelled && Array.isArray(history) && history.length) {
+              setCandles((previous) => {
+                const merged = new Map<number, OHLCV>();
+                history.forEach((bar: OHLCV) => merged.set(bar.time, bar));
+                previous.forEach((bar) => merged.set(bar.time, bar));
+                return [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Extended chart history unavailable:', err);
+        }
       }
     };
 
