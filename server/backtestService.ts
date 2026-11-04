@@ -196,6 +196,8 @@ export class BacktestService {
 
     let nextSymbolIndex = 0;
     let loadedSymbolCount = 0;
+    let processedSymbolCount = 0;
+    const skippedSymbols: string[] = [];
     let loadError: Error | null = null;
     const loadSymbolWorker = async () => {
       while (!job.stopped && !loadError) {
@@ -213,7 +215,12 @@ export class BacktestService {
           requestedBars
         );
         if (candles.length < requestedBars - 2) {
-          throw new Error(`Incomplete historical data for ${sym}: ${candles.length}/${requestedBars} candles; backtest cannot be marked completed.`);
+          skippedSymbols.push(sym);
+          run.logs.push(`[SKIPPED] ${sym}: only ${candles.length}/${requestedBars} candles available; excluded from the full ${run.testPeriodDays}-day comparison.`);
+          processedSymbolCount++;
+          job.progress = Math.min(25, Math.max(1, Math.floor((processedSymbolCount / symbols.length) * 25)));
+          job.currentDate = `Checked ${processedSymbolCount}/${symbols.length} • ${skippedSymbols.length} skipped`;
+          continue;
         }
         run.logs.push(`[DATA] ${sym}: ${candles.length} verified ${portfolioConfig.backtestTimeframe}m candles, ${new Date(candles[0].time * 1000).toISOString()} to ${new Date(candles[candles.length - 1].time * 1000).toISOString()}`);
         candleMap.set(sym, candles);
@@ -247,9 +254,10 @@ export class BacktestService {
 
         signalMap.set(sym, { buyMap, sellMap, adxMap, rsiMap });
         loadedSymbolCount++;
-        job.progress = Math.min(25, Math.max(1, Math.floor((loadedSymbolCount / symbols.length) * 25)));
-        job.currentDate = `Loaded ${loadedSymbolCount}/${symbols.length} symbols`;
-        if (loadedSymbolCount % 10 === 0) storageService.saveBacktestRun(run);
+        processedSymbolCount++;
+        job.progress = Math.min(25, Math.max(1, Math.floor((processedSymbolCount / symbols.length) * 25)));
+        job.currentDate = `Checked ${processedSymbolCount}/${symbols.length} • ${skippedSymbols.length} skipped`;
+        if (processedSymbolCount % 10 === 0) storageService.saveBacktestRun(run);
       } catch (err: any) {
         loadError = new Error(`Cannot run complete ${run.testPeriodDays}-day test: ${err.message}`);
         return;
@@ -259,6 +267,12 @@ export class BacktestService {
     await Promise.all(Array.from({ length: Math.min(4, symbols.length) }, () => loadSymbolWorker()));
     if (job.stopped) return;
     if (loadError) throw loadError;
+
+    const originallySelected = symbols.length;
+    symbols = symbols.filter((symbol) => candleMap.has(symbol));
+    run.symbolsCount = symbols.length;
+    run.logs.push(`[UNIVERSE] ${symbols.length}/${originallySelected} symbols have complete ${run.testPeriodDays}-day history; ${skippedSymbols.length} excluded: ${skippedSymbols.join(', ') || 'none'}.`);
+    storageService.saveBacktestRun(run);
 
     if (candleMap.size === 0) {
       throw new Error(`Failed to retrieve historical market data for symbols in group on ${portfolioConfig.exchange}.`);
