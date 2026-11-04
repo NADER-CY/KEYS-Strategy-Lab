@@ -246,6 +246,20 @@ async function runTestSuite() {
     assert(ha[1].high === 16 && ha[1].low === 11, 'Heikin Ashi extrema must encompass synthetic body');
     assert(ha[1].volume === 220, 'Heikin Ashi must preserve real exchange volume for Pine volume_spike');
 
+    // Regression: O(n) channel extrema must match the historical window scan.
+    const sequence = Array.from({ length: 750 }, (_, i) =>
+      Math.sin(i * 0.37) * 12 + Math.cos(i * 0.09) * 3);
+    for (const width of [1, 14, 200]) {
+      for (const mode of ['highest', 'lowest'] as const) {
+        const optimized = rollingExtreme(sequence, width, mode);
+        for (let i = 0; i < sequence.length; i++) {
+          const window = sequence.slice(Math.max(0, i - width + 1), i + 1);
+          const expected = mode === 'highest' ? Math.max(...window) : Math.min(...window);
+          assert(optimized[i] === expected, `Rolling ${mode} parity failed at ${i} / ${width}`);
+        }
+      }
+    }
+
     // TradingView's Bybit 15m reference must use the exchange's native 15m
     // candles, not OHLCV reconstructed from potentially different 5m caches.
     const service = exchangeService as any;
