@@ -698,9 +698,9 @@ export class BacktestService {
           const currentAdx = sigs.adxMap.get(curTime) ?? 0;
           const currentRsi = sigs.rsiMap.get(curTime) ?? 50;
 
-          if (hasBuy) {
+          if (hasBuy && portfolioConfig.signalSide !== 'sell') {
             candidateSignals.push({ symbol: sym, side: 'BUY', adx: currentAdx, rsi: currentRsi, signalTime: curTime, reason: sigs.buyMap.get(curTime)!.reason });
-          } else if (hasSell) {
+          } else if (hasSell && portfolioConfig.signalSide !== 'buy') {
             candidateSignals.push({ symbol: sym, side: 'SELL', adx: currentAdx, rsi: currentRsi, signalTime: curTime, reason: sigs.sellMap.get(curTime)!.reason });
           }
         }
