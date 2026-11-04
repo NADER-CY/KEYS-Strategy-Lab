@@ -39,13 +39,62 @@ jobs:
           printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy from GitHub on KEYS server
+      - name: Deploy and rebuild KEYS on server with rollback
         run: |
           ssh -i ~/.ssh/keys_deploy \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=15 \
-            root@206.1.101.229 'flock -w 60 /run/lock/keys-strategy-deploy.lock /usr/local/bin/deploy-keys'
+            root@206.1.101.229 'flock -w 60 /run/lock/keys-strategy-deploy.lock bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+          cd /opt/keys-strategy-lab/extracted/*/
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "Tracked local changes detected; refusing to overwrite them."
+            exit 1
+          fi
+          echo "=== FETCH GITHUB ==="
+          git fetch origin main
+          OLD="$(git rev-parse HEAD)"
+          NEW="$(git rev-parse origin/main)"
+          MARKER=".cache/keys-production-commit"
+          if [ "$OLD" = "$NEW" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$NEW" ]; then
+            echo "SOURCE AND BUILT PRODUCTION VERSION ARE CURRENT"
+            exit 0
+          fi
+          BACKUP="$(mktemp -d /opt/keys-strategy-lab/deploy-backups/gha.XXXXXXXX)"
+          cp -a dist "$BACKUP/dist"
+          rollback() {
+            echo "DEPLOY FAILED: restoring previous source and dist"
+            git reset --hard "$OLD" || true
+            rm -rf dist
+            cp -a "$BACKUP/dist" dist
+            systemctl restart keys-strategy-lab.service || true
+            rm -rf "$BACKUP"
+          }
+          trap rollback ERR
+          if [ "$OLD" != "$NEW" ]; then
+            echo "=== APPLY NEW SOURCE ==="
+            git merge --ff-only origin/main
+          fi
+          echo "=== BUILD ==="
+          npm install --legacy-peer-deps
+          node ./node_modules/vite/bin/vite.js build
+          echo "=== RESTART KEYS ONLY ==="
+          systemctl restart keys-strategy-lab.service
+          for i in 1 2 3 4 5; do
+            if systemctl is-active --quiet keys-strategy-lab.service &&
+              curl -fsS --max-time 5 http://127.0.0.1:3001/api/exchanges >/dev/null; then
+              mkdir -p .cache
+              printf '%s\n' "$NEW" > "$MARKER"
+              trap - ERR
+              rm -rf "$BACKUP"
+              echo "DEPLOY SUCCESS $NEW"
+              exit 0
+            fi
+            sleep 2
+          done
+          false
+          REMOTE
 
       - name: Verify production HTTP endpoints
         run: |
