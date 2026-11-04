@@ -132,6 +132,44 @@ export class ExchangeDataService {
   private cacheDir: string;
   private liveRefreshAt = new Map<string, number>();
 
+  async getBybitFundingHistory(symbol: string, fromSec: number, toSec: number): Promise<{ time: number; rate: number }[]> {
+    const fundingDir = path.join(this.cacheDir, 'funding');
+    fs.mkdirSync(fundingDir, { recursive: true });
+    const cacheFile = path.join(fundingDir, `bybit_${symbol}_${fromSec}_${toSec}.json`);
+    if (fs.existsSync(cacheFile)) {
+      try { return JSON.parse(fs.readFileSync(cacheFile, 'utf8')); } catch { /* fetch again */ }
+    }
+    const found = new Map<number, number>();
+    let endMs = toSec * 1000;
+    for (let page = 0; page < 30; page++) {
+      const params = new URLSearchParams({ category: 'linear', symbol, endTime: String(endMs), limit: '200' });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let data: any;
+      try {
+        const response = await fetch(`https://api.bybit.com/v5/market/funding/history?${params}`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        data = await response.json();
+      } finally { clearTimeout(timeout); }
+      if (data.retCode !== 0) throw new Error(`Bybit funding history: ${data.retMsg}`);
+      const pageRates = data.result?.list || [];
+      if (!pageRates.length) break;
+      let oldest = Infinity;
+      for (const item of pageRates) {
+        const time = Math.floor(Number(item.fundingRateTimestamp) / 1000);
+        const rate = Number(item.fundingRate);
+        if (Number.isFinite(time) && Number.isFinite(rate) && time >= fromSec && time <= toSec) found.set(time, rate);
+        oldest = Math.min(oldest, time);
+      }
+      if (oldest <= fromSec || !Number.isFinite(oldest)) break;
+      endMs = oldest * 1000 - 1;
+    }
+    const rates = [...found.entries()].map(([time, rate]) => ({ time, rate })).sort((a, b) => a.time - b.time);
+    if (!rates.length) throw new Error(`No real Bybit funding history available for ${symbol}`);
+    fs.writeFileSync(cacheFile, JSON.stringify(rates), 'utf8');
+    return rates;
+  }
+
   constructor() {
     this.cacheDir = path.resolve(process.cwd(), '.cache', 'ohlcv');
     if (!fs.existsSync(this.cacheDir)) {
