@@ -30,16 +30,15 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onPageChange }) => 
           </div>
         </div>
         <nav aria-label="Main Navigation"
-          className="flex min-w-0 flex-1 items-center justify-start lg:justify-center gap-5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-[#243044]">
-          {pages.map((p, idx) => {
+          className="flex min-w-0 flex-1 items-center justify-start lg:justify-center gap-5 overflow-x-auto overflow-y-hidden whitespace-nowrap">
+          {pages.map((p) => {
             const isActive = currentPage === p.id;
             return (
               <button key={p.id} type="button"
                 onClick={() => onPageChange(p.id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center gap-1.5 px-1 pt-3 pb-3 text-xs 2xl:text-sm font-bold transition-colors shrink-0 cursor-pointer bg-transparent border-0 border-b-2 -mb-px rounded-none hover:text-[#1463FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1463FF] ${isActive ? 'text-[#1463FF] border-b-[#1463FF]' : 'text-slate-300 border-b-transparent hover:text-[#1463FF]'}`}
+                className={`flex items-center gap-1.5 px-1 pt-3 pb-3 text-xs 2xl:text-sm font-bold transition-colors shrink-0 cursor-pointer bg-transparent border-0 border-b-2 rounded-none hover:text-[#1463FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1463FF] ${isActive ? 'text-[#1463FF] border-b-[#1463FF]' : 'text-slate-300 border-b-transparent hover:text-[#1463FF]'}`}
               >
-                <span className="w-4 text-[11px] font-mono text-current">{idx + 1}</span>
                 <span className="material-symbols-outlined !text-[18px]">{p.icon}</span>
                 <span>{p.label}</span>
               </button>
