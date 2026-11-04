@@ -17,6 +17,7 @@ import { exchangeService } from './exchanges';
 import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
 import { ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
+import { hasCycleReachedExpiry } from '../src/engine/cycleTiming';
 
 export interface ActiveJob {
   run: BacktestRun;
@@ -233,6 +234,20 @@ export class BacktestService {
 
     run.logs.push(`Simulation timeline initialized with ${timeline.length} bars.`);
 
+    const fundingHistory = new Map<string, { time: number; rate: number }[]>();
+    const fundingCursor = new Map<string, number>();
+    if (portfolioConfig.exchange === 'bybit') {
+      for (const sym of symbols) {
+        if (job.stopped) return;
+        const history = await exchangeService.getBybitFundingHistory(sym, minTime, maxTime);
+        fundingHistory.set(sym, history);
+        fundingCursor.set(sym, 0);
+        run.logs.push(`[FUNDING] ${sym}: ${history.length} actual historical Bybit funding rates loaded; prior candle close approximates settlement mark price.`);
+      }
+    } else {
+      run.logs.push(`[FUNDING] Historical funding API not implemented for ${portfolioConfig.exchange}; fixed ${portfolioConfig.fundingRate8hPct}% every 8h is a model assumption.`);
+    }
+
     // 4. State variables
     let accountBalance = portfolioConfig.initialCapital;
     let peakPortfolioEquity = accountBalance;
@@ -240,7 +255,9 @@ export class BacktestService {
 
     let cycleIndex = 1;
     let cycleStartEquity = accountBalance;
-    let cycleStartTime = timeline[0];
+    // An idle cycle has no start date. Its clock begins only when the first
+    // position actually opens, not at the beginning of historical data.
+    let cycleStartTime: number | null = null;
     let cyclePeakProfitPct = 0; // relative to cycleStartEquity
     let cycleExpiredWaitingBreakeven = false; // Defect fix: hold losing cycle until breakeven
 
@@ -261,7 +278,6 @@ export class BacktestService {
     let queuedEntries: QueuedSignal[] = [];
 
     const cycleDurationDays = Math.max(1, portfolioConfig.cycleToDay);
-    const cycleMaxDurationSec = cycleDurationDays * 86400;
     let lastFundingTime = timeline[0];
 
     // Helper: find applicable PnL drop rule based on peak profit percentage
@@ -313,7 +329,7 @@ export class BacktestService {
       // Record completed cycle
       const completedCycle: CycleRecord = {
         cycleIndex,
-        startTime: cycleStartTime,
+        startTime: cycleStartTime ?? curTime,
         endTime: curTime,
         startEquity: Number(cycleStartEquity.toFixed(2)),
         endEquity: Number(accountBalance.toFixed(2)),
@@ -333,7 +349,7 @@ export class BacktestService {
       // Reset for next cycle
       cycleIndex++;
       cycleStartEquity = accountBalance;
-      cycleStartTime = curTime;
+      cycleStartTime = null;
       cyclePeakProfitPct = 0;
       cycleExpiredWaitingBreakeven = false;
     };
@@ -401,13 +417,35 @@ export class BacktestService {
             };
 
             openPositions.push(newTrade);
+            if (cycleStartTime === null) {
+              cycleStartTime = curTime;
+              cycleStartEquity = accountBalance + entryFee;
+              run.logs.push(`[${job.currentDate}] Cycle #${cycleIndex} started with first position ${queued.symbol}.`);
+            }
           }
         }
         queuedEntries = [];
       }
 
       // ─── B. FUNDING RATE DEDUCTION EVERY 8 HOURS ───
-      if (portfolioConfig.fundingRate8hPct > 0 && curTime - lastFundingTime >= 28800) {
+      if (portfolioConfig.exchange === 'bybit') {
+        for (const sym of symbols) {
+          const history = fundingHistory.get(sym) || [];
+          let cursor = fundingCursor.get(sym) || 0;
+          while (cursor < history.length && history[cursor].time <= curTime) {
+            const event = history[cursor++];
+            for (const pos of openPositions) {
+              if (pos.symbol !== sym || pos.entryTime >= event.time) continue;
+              const priorClose = candleIndexMap.get(sym)?.get(curTime - stepSec)?.close || pos.entryPrice;
+              const markedNotional = pos.notional * priorClose / pos.entryPrice;
+              const signedFee = markedNotional * event.rate * (pos.side === 'BUY' ? 1 : -1);
+              accountBalance -= signedFee;
+              pos.fundingPaid += signedFee;
+            }
+          }
+          fundingCursor.set(sym, cursor);
+        }
+      } else if (portfolioConfig.fundingRate8hPct > 0 && curTime - lastFundingTime >= 28800) {
         lastFundingTime = curTime;
         for (const pos of openPositions) {
           const fundingFee = pos.notional * (portfolioConfig.fundingRate8hPct / 100);
@@ -481,8 +519,7 @@ export class BacktestService {
       }
 
       // ─── E. CYCLE DURATION EXPIRY & BREAKEVEN HOLDING RULE ───
-      const cycleElapsedSec = curTime - cycleStartTime;
-      if (cycleElapsedSec >= cycleMaxDurationSec && !shouldLiquidateBasket) {
+      if (hasCycleReachedExpiry(cycleStartTime, curTime, cycleDurationDays, openPositions.length > 0) && !shouldLiquidateBasket) {
         if (cycleNetProfitUsdt >= 0) {
           // Basket is in profit or breakeven -> liquidate and start next cycle
           shouldLiquidateBasket = true;
@@ -584,10 +621,10 @@ export class BacktestService {
     }
 
     // Record final cycle if open
-    if (completedCycles.length === 0 || completedCycles[completedCycles.length - 1].cycleIndex !== cycleIndex) {
+    if (cycleStartTime !== null && (completedCycles.length === 0 || completedCycles[completedCycles.length - 1].cycleIndex !== cycleIndex)) {
       completedCycles.push({
         cycleIndex,
-        startTime: cycleStartTime,
+        startTime: cycleStartTime ?? finalTime,
         endTime: finalTime,
         startEquity: Number(cycleStartEquity.toFixed(2)),
         endEquity: Number(accountBalance.toFixed(2)),
