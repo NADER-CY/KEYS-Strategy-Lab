@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
           echo "=== FETCH GITHUB ==="
-          git -c remote.origin.url=https://github.com/NADER-CY/KEYS-Strategy-Lab.git fetch origin main
+          GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c remote.origin.url=https://github.com/NADER-CY/KEYS-Strategy-Lab.git fetch origin main
           OLD="$(git rev-parse HEAD)"
           NEW="$(git rev-parse FETCH_HEAD)"
           MARKER=".cache/keys-production-commit"
