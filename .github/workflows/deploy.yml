@@ -52,6 +52,60 @@ jobs:
             echo "Tracked local changes detected; refusing to overwrite them."
             exit 1
           fi
+          echo "=== GIT AUTH DIAGNOSTIC ==="
+          if [ -r /root/.ssh/keys_strategy_lab_github ]; then echo "SERVER_GITHUB_KEY_PRESENT"; else echo "SERVER_GITHUB_KEY_MISSING"; fi
+          git config --show-origin --get-regexp '^url\\..*\\.insteadof$|^core\\.sshcommand
+          GIT_SSH_COMMAND="ssh -i /root/.ssh/keys_strategy_lab_github -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git fetch origin main
+          OLD="$(git rev-parse HEAD)"
+          NEW="$(git rev-parse FETCH_HEAD)"
+          MARKER=".cache/keys-production-commit"
+          if [ "$OLD" = "$NEW" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$NEW" ]; then
+            echo "SOURCE AND BUILT PRODUCTION VERSION ARE CURRENT"
+            exit 0
+          fi
+          BACKUP="$(mktemp -d /opt/keys-strategy-lab/deploy-backups/gha.XXXXXXXX)"
+          cp -a dist "$BACKUP/dist"
+          rollback() {
+            echo "DEPLOY FAILED: restoring previous source and dist"
+            git reset --hard "$OLD" || true
+            rm -rf dist
+            cp -a "$BACKUP/dist" dist
+            systemctl restart keys-strategy-lab.service || true
+            rm -rf "$BACKUP"
+          }
+          trap rollback ERR
+          if [ "$OLD" != "$NEW" ]; then
+            echo "=== APPLY NEW SOURCE ==="
+            git merge --ff-only FETCH_HEAD
+          fi
+          echo "=== BUILD ==="
+          export PATH="/root/.nvm/versions/node/v22.23.4/bin:$PATH"
+          command -v node
+          command -v npm
+          npm install --legacy-peer-deps
+          node ./node_modules/vite/bin/vite.js build
+          echo "=== RESTART KEYS ONLY ==="
+          systemctl restart keys-strategy-lab.service
+          for i in 1 2 3 4 5; do
+            if systemctl is-active --quiet keys-strategy-lab.service &&
+              curl -fsS --max-time 5 http://127.0.0.1:3001/api/exchanges >/dev/null; then
+              mkdir -p .cache
+              printf '%s\n' "$NEW" > "$MARKER"
+              trap - ERR
+              rm -rf "$BACKUP"
+              echo "DEPLOY SUCCESS $NEW"
+              exit 0
+            fi
+            sleep 2
+          done
+          false
+          REMOTE
+
+      - name: Verify production HTTP endpoints
+        run: |
+          curl --fail --show-error --silent --retry 5 --retry-delay 3 https://hamid.kipgoo.com/api/exchanges > /dev/null
+          curl --fail --show-error --silent --retry 5 --retry-delay 3 https://hamid.kipgoo.com/symbol-universe > /dev/null
+ || true
           echo "=== FETCH GITHUB ==="
           GIT_SSH_COMMAND="ssh -i /root/.ssh/keys_strategy_lab_github -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git fetch origin main
           OLD="$(git rev-parse HEAD)"
