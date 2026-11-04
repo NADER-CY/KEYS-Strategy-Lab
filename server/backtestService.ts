@@ -17,6 +17,7 @@ import { exchangeService } from './exchanges';
 import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
+import { calculateExecutedEntryPrice } from '../src/engine/executionPrice';
 import { ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
 import { hasCycleReachedExpiry } from '../src/engine/cycleTiming';
 
@@ -400,11 +401,7 @@ export class BacktestService {
           // Check margin availability
           if (accountBalance >= initialMargin) {
             const entryFee = notional * (portfolioConfig.feeTakerPct / 100);
-            const slippageMult =
-              queued.side === 'BUY'
-                ? 1 + portfolioConfig.slippageTolerance / 100
-                : 1 - portfolioConfig.slippageTolerance / 100;
-            const executedPrice = c.open * slippageMult;
+            const executedPrice = calculateExecutedEntryPrice(c.open, queued.side, portfolioConfig.slippageTolerance);
 
             accountBalance -= entryFee; // Deduct taker fee on entry
 
@@ -413,7 +410,10 @@ export class BacktestService {
               symbol: queued.symbol,
               side: queued.side,
               entryTime: curTime,
-              entryPrice: Number(executedPrice.toFixed(meta?.pricePrecision || 2)),
+              // NEVER quantize synthetic execution to 2 decimals: a $0.038
+              // perpetual would become $0.04, distorting PnL by >5%.
+              // Keep the exact next-bar open plus simulated slippage.
+              entryPrice: executedPrice,
               notional,
               leverage: appliedLeverage,
               margin: Number(initialMargin.toFixed(4)),
