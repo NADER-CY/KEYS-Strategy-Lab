@@ -265,13 +265,32 @@ export default function App() {
     }
   };
 
-  const handleDeleteRun = async (id: string) => {
-    await fetch(`/api/backtest/runs/${id}`, { method: 'DELETE' });
-    setRuns((prev) => prev.filter((r) => r.id !== id));
-    if (selectedRunId === id) {
-      setSelectedRunId(runs.filter((r) => r.id !== id)[0]?.id);
+  const handleDeleteRuns = async (ids: string[]): Promise<void> => {
+    const targets = [...new Set(ids)];
+    const running = runs.filter((r) => targets.includes(r.id) && r.status === 'RUNNING');
+    if (running.length) throw new Error('Stop running backtests before deleting them.');
+    const deleted: string[] = [];
+    try {
+      // Sequential requests avoid read-modify-write races in the JSON file store.
+      for (const id of targets) {
+        const response = await fetch(`/api/backtest/runs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(`Failed to delete ${id}: HTTP ${response.status}`);
+        deleted.push(id);
+      }
+    } finally {
+      if (deleted.length) {
+        const removed = new Set(deleted);
+        setRuns((prev) => prev.filter((r) => !removed.has(r.id)));
+        setSelectedRunId((prev) => prev && removed.has(prev)
+          ? runs.find((r) => !removed.has(r.id))?.id
+          : prev);
+        setLastCompletedRun((prev) => prev && removed.has(prev.id) ? null : prev);
+        setInspectTradeId(null);
+      }
     }
   };
+
+  const handleDeleteRun = async (id: string): Promise<void> => handleDeleteRuns([id]);
 
   const handleInspectTradeOnChart = (runId: string, tradeId: string) => {
     setSelectedRunId(runId);
@@ -365,6 +384,7 @@ export default function App() {
             selectedRunId={selectedRunId}
             onSelectRun={setSelectedRunId}
             onDeleteRun={handleDeleteRun}
+            onDeleteRuns={handleDeleteRuns}
             onInspectTradeOnChart={handleInspectTradeOnChart}
             onNewBacktest={() => navigatePage('chart')}
             onCloneSettingsToBacktest={handleCloneRunSettings}
@@ -377,6 +397,7 @@ export default function App() {
             runs={runs}
             selectedRunId={selectedRunId}
             onSelectRun={setSelectedRunId}
+            onDeleteRun={handleDeleteRun}
             inspectTradeId={inspectTradeId}
             onNewBacktest={() => navigatePage('chart')}
             onNavigateToPage={navigatePage}
