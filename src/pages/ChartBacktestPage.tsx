@@ -827,22 +827,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Margin Mode</label>
-                  <select
-                    value={portfolioConfig.marginMode}
-                    onChange={(e) =>
-                      onUpdatePortfolioConfig({
-                        ...portfolioConfig,
-                        marginMode: e.target.value as any
-                      })
-                    }
-                    className="w-full bg-[#171920] border border-[#19273c] text-sm text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-semibold"
-                  >
-                    <option value="cross">Cross Margin (Shared Portfolio Equity)</option>
-                    <option value="isolated">Isolated Margin (Independent Risk)</option>
-                  </select>
-                </div>
               </div>
 
               {/* Column 3: Timing, Limits & Execution */}
@@ -904,7 +888,6 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                     }
                     className="w-full bg-[#171920] border border-[#19273c] text-base text-white font-mono font-bold rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
                   />
-                  <p className="text-xs text-slate-400 mt-1">Supports standard minutes: 5, 15, 30, 60, 240, 1440</p>
                 </div>
 
                 <div>
