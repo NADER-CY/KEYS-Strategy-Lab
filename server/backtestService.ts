@@ -82,8 +82,13 @@ export class BacktestService {
       ...Object.fromEntries(indicator.params.map((param) => [param.name, param.value])),
       ...indicatorParams
     };
-    if (typeof effectiveParams.useSARFilter !== 'boolean') {
+    if (isOriginalKeys && typeof effectiveParams.useSARFilter !== 'boolean') {
       throw new Error('Enable SAR Filter must be a boolean; refresh the indicator settings and retry.');
+    }
+    if (isUtBot && (!Number.isFinite(Number(effectiveParams.a)) || Number(effectiveParams.a) <= 0
+      || !Number.isInteger(Number(effectiveParams.c)) || Number(effectiveParams.c) < 1
+      || typeof effectiveParams.h !== 'boolean')) {
+      throw new Error('UT Bot requires a positive Key Value (a), integer ATR Period (c), and boolean Heikin Ashi toggle (h).');
     }
     const testPeriodDays = Number(portfolioConfig.testPeriodDays || 30);
     if (![30, 90, 180, 365].includes(testPeriodDays)) throw new Error('Historical test period must be 30, 90, 180, or 365 days.');
