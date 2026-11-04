@@ -225,10 +225,23 @@ export default function App() {
   };
 
   const handleStopBacktest = async () => {
-    if (activeJobId) {
-      await fetch(`/api/backtest/stop/${activeJobId}`, { method: 'POST' });
+    const stoppedId = activeJobId;
+    if (stoppedId) {
+      await fetch(`/api/backtest/stop/${stoppedId}`, { method: 'POST' }).catch(() => undefined);
     }
     setIsBacktestRunning(false);
+    setActiveJobId(null);
+    // Show the stopped run (status STOPPED) instead of leaving a stale list.
+    try {
+      const runsRes = await fetch('/api/backtest/runs', { cache: 'no-store' });
+      if (runsRes.ok) {
+        const updatedRuns: BacktestRun[] = await runsRes.json();
+        setRuns(updatedRuns);
+        if (stoppedId && updatedRuns.some((r) => r.id === stoppedId)) setSelectedRunId(stoppedId);
+      }
+    } catch (err) {
+      console.error('Failed to refresh runs after stop:', err);
+    }
   };
 
   // Group Management
@@ -255,7 +268,7 @@ export default function App() {
   };
 
   const handleDeleteGroup = async (id: string) => {
-    const response = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+    const response = await fetch(`/api/groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`Unable to delete group (HTTP ${response.status})`);
     const remaining = savedGroups.filter((g) => g.id !== id);
     setSavedGroups(remaining);
@@ -305,11 +318,14 @@ export default function App() {
   const handleSelectIndicator = (indicator: SavedIndicator) => {
     setActiveIndicator(indicator);
     setActiveStrategyName(indicator.name);
-    // Persist chart selection so refreshing the page restores the same script.
-    void fetch('/api/lab-settings', {
+    // Persist ONLY the chart selection so refreshing restores the same script.
+    // Unsaved portfolio / PnL edits are not written as a side effect.
+    void fetch('/api/lab-settings/indicator', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ portfolioConfig, pnlConfig, indicatorId: indicator.id })
+      body: JSON.stringify({ indicatorId: indicator.id })
+    }).then((response) => {
+      if (!response.ok) console.warn(`Unable to persist selected chart indicator (HTTP ${response.status})`);
     }).catch((error) => console.warn('Unable to persist selected chart indicator:', error));
   };
 
@@ -353,10 +369,15 @@ export default function App() {
     if (run.pnlConfig) {
       setPnLConfig(run.pnlConfig);
     }
-    if (run.strategyName) {
+    // Match the exact indicator the run used; a fuzzy name match could pick
+    // a different script (e.g. a copy whose name contains the original's).
+    const found = (run.indicatorId && indicators.find((ind) => ind.id === run.indicatorId))
+      || (run.strategyName && indicators.find((ind) => ind.name === run.strategyName));
+    if (found) {
+      setActiveIndicator(found);
+      setActiveStrategyName(found.name);
+    } else if (run.strategyName) {
       setActiveStrategyName(run.strategyName);
-      const found = indicators.find((ind) => ind.name.toLowerCase().includes(run.strategyName.toLowerCase()));
-      if (found) setActiveIndicator(found);
     }
     navigatePage('chart');
   };
@@ -486,6 +507,7 @@ export default function App() {
 
         {currentPage === 'symbols' && (
           <SymbolSelectionPage
+            initialGroupId={portfolioConfig.savedGroupId}
             currentExchange={portfolioConfig.exchange}
             onExchangeChange={(ex) => setPortfolioConfig((prev) => ({ ...prev, exchange: ex }))}
             savedGroups={savedGroups}

@@ -1,3 +1,4 @@
+import { toBybitContractSymbol } from '../engine/bybitContracts';
 import React, { useState, useEffect, useMemo } from 'react';
 import { ExchangeId, SymbolMeta, SavedSymbolGroup } from '../types';
 
@@ -33,8 +34,10 @@ interface SymbolSelectionPageProps {
   currentExchange: ExchangeId;
   onExchangeChange: (ex: ExchangeId) => void;
   savedGroups: SavedSymbolGroup[];
+  /** Group currently configured for backtesting; opened first. */
+  initialGroupId?: string;
   onSaveGroup: (group: SavedSymbolGroup) => Promise<void>;
-  onDeleteGroup: (id: string) => void;
+  onDeleteGroup: (id: string) => Promise<void> | void;
   onApplyUniverseToBacktest: (groupId: string, autoRun?: boolean) => void;
   onNavigateToPage?: (page: 'chart' | 'results' | 'positions' | 'symbols') => void;
 }
@@ -43,6 +46,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   currentExchange,
   onExchangeChange,
   savedGroups,
+  initialGroupId,
   onSaveGroup,
   onDeleteGroup,
   onApplyUniverseToBacktest,
@@ -56,6 +60,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   // Active group selection
   const [activeGroupId, setActiveGroupId] = useState<string>(() => {
+    // Open the group that the backtest will actually use (deleted or stale
+    // ids fall back to the first saved group).
+    if (initialGroupId && savedGroups.some((g) => g.id === initialGroupId)) return initialGroupId;
     return savedGroups[0]?.id || 'tab_100_bybit';
   });
 
@@ -147,12 +154,35 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     setSelectedSymbols(top);
   };
 
+  // Symbols that are not contracts of the exchange being saved would make the
+  // group fail at backtest time; block the save instead of storing them.
+  const findForeignSymbols = (list: string[]) => {
+    if (!symbols.length) return [];
+    const available = new Set(symbols.map((s) => s.symbol));
+    return list.filter((symbol) => !available.has(symbol) &&
+      !(currentExchange === 'bybit' && available.has(toBybitContractSymbol(symbol))));
+  };
+  /** Returns the symbols to save, or null if the user cancelled. */
+  const confirmSelectionForExchange = (list: string[]): string[] | null => {
+    const foreign = findForeignSymbols(list);
+    if (!foreign.length) return list;
+    const preview = `${foreign.slice(0, 12).join(', ')}${foreign.length > 12 ? '…' : ''}`;
+    const remove = confirm(`${foreign.length} selected symbol(s) are not active ${currentExchange.toUpperCase()} USDT perpetuals and would make backtests fail: ${preview}\n\nRemove them from this selection and continue?`);
+    if (!remove) return null;
+    const foreignSet = new Set(foreign);
+    const kept = list.filter((symbol) => !foreignSet.has(symbol));
+    setSelectedSymbols(kept);
+    return kept;
+  };
+
   const handleSaveChanges = async () => {
     if (!activeGroup) return;
+    const checked = confirmSelectionForExchange(selectedSymbols);
+    if (!checked) return;
     const updated: SavedSymbolGroup = {
       ...activeGroup,
       exchange: currentExchange,
-      symbols: [...selectedSymbols],
+      symbols: [...checked],
       updatedAt: new Date().toISOString()
     };
     try {
@@ -169,10 +199,16 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       alert('Select at least one symbol before starting a backtest.');
       return;
     }
+    const checked = confirmSelectionForExchange(selectedSymbols);
+    if (!checked) return;
+    if (checked.length === 0) {
+      alert('Select at least one symbol before starting a backtest.');
+      return;
+    }
     const updated: SavedSymbolGroup = {
       ...activeGroup,
       exchange: currentExchange,
-      symbols: [...selectedSymbols],
+      symbols: [...checked],
       updatedAt: new Date().toISOString()
     };
     try {
@@ -242,13 +278,19 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     handleSaveAsNewTab(true);
   };
 
-  const handleDeleteGroup = (group: SavedSymbolGroup) => {
+  const handleDeleteGroup = async (group: SavedSymbolGroup) => {
     if (savedGroups.length <= 1) {
       alert('Cannot delete the last remaining symbol group.');
       return;
     }
     if (confirm(`Are you sure you want to delete symbol group "${group.name}"?`)) {
-      onDeleteGroup(group.id);
+      try {
+        // Only switch away once the server confirms the deletion.
+        await onDeleteGroup(group.id);
+      } catch (error: any) {
+        alert(error?.message || 'Failed to delete symbol group.');
+        return;
+      }
       const remaining = savedGroups.filter((g) => g.id !== group.id);
       if (activeGroup?.id === group.id && remaining.length > 0) {
         setActiveGroupId(remaining[0].id);

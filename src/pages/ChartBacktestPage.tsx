@@ -14,6 +14,8 @@ import { calculateKeysIndicator, toHeikinAshiCandles } from '../engine/indicator
 import { toRenkoCandles } from '../engine/renkoChart';
 import { ORIGINAL_KEYS_PINE_SCRIPT, isUtBotAlertsScript, parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
 import { calculateUtBotSignals } from '../engine/utBotCalculations';
+import { mergeOlderCandles, mergeRecentCandles } from '../engine/candleMerge';
+import { validatePnLConfig } from '../engine/pnlRules';
 
 interface ChartBacktestPageProps {
   activeStrategy: string;
@@ -97,6 +99,11 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const handleSavePnlRules = async () => {
     if (!onSaveConfig) {
       setPnlSaveStatus('Unable to save: server settings handler is unavailable.');
+      return;
+    }
+    const validationError = validatePnLConfig(pnlConfig);
+    if (validationError) {
+      setPnlSaveStatus(`✕ Not saved: ${validationError}`);
       return;
     }
     setSavingPnlRules(true);
@@ -230,10 +237,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           const data = await res.json();
           if (!isCancelled && Array.isArray(data)) {
             recentCandles = data;
+            // Signals are derived from `candles` by the effect below; computing
+            // them here as well doubled the work on every symbol switch.
             setCandles(data);
-            if (activeIndicator.id === 'keys_v6' || isUtBotAlertsScript(activeIndicator.code)) {
-              setSignals(calculateSelectedSignals(data, appliedParams, chartCandleType, chartTimeframe, activeIndicator.code));
-            }
             setLastRefreshedAt(new Date());
           }
         }
@@ -256,6 +262,9 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             );
             if (!res.ok) throw new Error(`Historical page ${res.status}`);
             const page: OHLCV[] = await res.json();
+            // The market may have changed while this page was downloading;
+            // never merge another symbol's/timeframe's candles into the chart.
+            if (isCancelled) break;
             if (!Array.isArray(page) || !page.length || page[0].time >= cursor) break;
             pending = [...page, ...pending];
             cursor = page[0].time;
@@ -265,24 +274,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             if (pages % 5 === 0 || cursor <= cutoff || page.length < 1000) {
               const history = pending;
               pending = [];
-              setCandles((previous) => {
-                const merged = new Map<number, OHLCV>();
-                history.forEach((bar: OHLCV) => merged.set(bar.time, bar));
-                previous.forEach((bar) => merged.set(bar.time, bar));
-                return [...merged.values()].sort((a, b) => a.time - b.time)
-                  .filter((bar) => bar.time >= cutoff).slice(-chartHistoryBars);
-              });
+              setCandles((previous) => mergeOlderCandles(previous, history, cutoff, chartHistoryBars));
             }
             if (page.length < 1000) break;
           }
           if (pending.length && !isCancelled) {
-            setCandles((previous) => {
-              const merged = new Map<number, OHLCV>();
-              pending.forEach((bar) => merged.set(bar.time, bar));
-              previous.forEach((bar) => merged.set(bar.time, bar));
-              return [...merged.values()].sort((a, b) => a.time - b.time)
-                .filter((bar) => bar.time >= cutoff).slice(-chartHistoryBars);
-            });
+            const history = pending;
+            setCandles((previous) => mergeOlderCandles(previous, history, cutoff, chartHistoryBars));
           }
         } catch (err) {
           console.warn('Extended chart history unavailable:', err);
@@ -314,20 +312,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         if (res.ok) {
           const data = await res.json();
           if (!isCancelled && Array.isArray(data) && data.length > 0) {
-            setCandles((previous) => {
-              // Keep older historical candles and markers when the live feed
-              // only returns a small recent window.
-              const merged = new Map<number, OHLCV>();
-              previous.forEach((bar) => merged.set(bar.time, bar));
-              data.forEach((bar) => merged.set(bar.time, bar));
-              const next = [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
-              const last = previous[previous.length - 1];
-              const incoming = next[next.length - 1];
-              return previous.length === next.length && previous[0]?.time === next[0]?.time &&
-                last?.time === incoming?.time && last?.close === incoming?.close &&
-                last?.high === incoming?.high && last?.low === incoming?.low && last?.volume === incoming?.volume
-                ? previous : next;
-            });
+            // Keep older historical candles when the live feed only returns a
+            // small recent window; unchanged polls keep the same array so the
+            // chart and indicators are not recomputed.
+            setCandles((previous) => mergeRecentCandles(previous, data, chartHistoryBars));
             setFeedHealthy(true);
             setLastRefreshedAt(new Date());
           }
@@ -337,7 +325,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       } finally {
         inFlight = false;
       }
-    }, chartHistoryBars > 10000 ? 15000 : 3500);
+    }, 3500);
 
     return () => {
       isCancelled = true;
@@ -363,12 +351,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setCandles((previous) => {
-            const merged = new Map<number, OHLCV>();
-            previous.forEach((bar) => merged.set(bar.time, bar));
-            data.forEach((bar: OHLCV) => merged.set(bar.time, bar));
-            return [...merged.values()].sort((a, b) => a.time - b.time).slice(-chartHistoryBars);
-          });
+          setCandles((previous) => mergeRecentCandles(previous, data, chartHistoryBars));
           setLastRefreshedAt(new Date());
         }
       }
@@ -424,6 +407,18 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           : `Input syntax checked (${result.version}) • ${inputs.length} inputs found. Arbitrary Pine code is not executed.`
       });
 
+      // Re-checking a script must not reset the user's saved parameter values:
+      // an input that still exists with the same name and type keeps its value
+      // (and, for the built-in KEYS profile, its curated limits).
+      const previousParams = new Map<string, SavedIndicator['params'][number]>(
+        activeIndicator.params.map((param) => [param.name, param]));
+      const mergedInputs = inputs.map((input) => {
+        const previous = previousParams.get(input.name);
+        if (!previous || previous.type !== input.type) return input;
+        return activeIndicator.id === 'keys_v6'
+          ? { ...previous, default: input.default }
+          : { ...input, value: previous.value };
+      });
       // Editing the selected indicator is explicit. Imported scripts can instead
       // be stored as independent presets via Save as New below.
       const updated: SavedIndicator = {
@@ -431,7 +426,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         code: editorCode,
         version: result.version as any,
         validationStatus: isUtBotAlertsScript(editorCode) ? 'Backtest Ready' : 'Validated',
-        params: inputs
+        params: mergedInputs
       };
       try {
         await onSaveIndicator(updated);
@@ -441,10 +436,11 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       }
 
       const newParams: Record<string, any> = {};
-      inputs.forEach((p) => {
+      mergedInputs.forEach((p) => {
         newParams[p.name] = p.value;
       });
       setLocalParams(newParams);
+      setAppliedParams(newParams);
 
       if ((updated.id === 'keys_v6' || isUtBotAlertsScript(updated.code)) && candles.length > 0) {
         const calculated = calculateSelectedSignals(candles, newParams, chartCandleType, chartTimeframe, updated.code);
@@ -1006,8 +1002,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             type="number"
                             value={row.fromPct}
                             onChange={(e) => {
-                              const updated = [...pnlConfig.rules];
-                              updated[idx].fromPct = parseFloat(e.target.value) || 0;
+                              const value = parseFloat(e.target.value);
+                              // Copy the row: never mutate the saved config object in place.
+                              const updated = pnlConfig.rules.map((rule, i) => i === idx
+                                ? { ...rule, fromPct: Number.isFinite(value) ? value : 0 } : rule);
                               updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
@@ -1018,8 +1016,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             type="number"
                             value={row.toPct}
                             onChange={(e) => {
-                              const updated = [...pnlConfig.rules];
-                              updated[idx].toPct = parseFloat(e.target.value) || 0;
+                              const value = parseFloat(e.target.value);
+                              // Copy the row: never mutate the saved config object in place.
+                              const updated = pnlConfig.rules.map((rule, i) => i === idx
+                                ? { ...rule, toPct: Number.isFinite(value) ? value : 0 } : rule);
                               updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-slate-100 text-base font-bold text-center focus:border-blue-500"
@@ -1030,8 +1030,10 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                             type="number"
                             value={row.dropPct}
                             onChange={(e) => {
-                              const updated = [...pnlConfig.rules];
-                              updated[idx].dropPct = parseFloat(e.target.value) || 0;
+                              const value = parseFloat(e.target.value);
+                              // Copy the row: never mutate the saved config object in place.
+                              const updated = pnlConfig.rules.map((rule, i) => i === idx
+                                ? { ...rule, dropPct: Number.isFinite(value) ? value : 0 } : rule);
                               updatePnlRules({ ...pnlConfig, rules: updated });
                             }}
                             className="w-28 bg-[#171920] border border-[#1b2b44] rounded-lg px-3 py-1.5 text-amber-400 text-base font-bold text-center focus:border-blue-500"

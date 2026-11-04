@@ -75,6 +75,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const badgeSignalsRef = useRef<IndicatorSignals | undefined>(signals);
   const badgePrecisionRef = useRef(6);
   const badgeFrameRef = useRef<number | null>(null);
+  // Incremented whenever the chart instance is (re)created, e.g. entering or
+  // leaving fullscreen, so data/overlays are re-applied to the new instance.
+  const [chartEpoch, setChartEpoch] = useState(0);
+  const savedLogicalRangeRef = useRef<{ from: number; to: number } | null>(null);
 
   const updateSignalBadges = () => {
     if (badgeFrameRef.current !== null) return;
@@ -91,6 +95,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       const lowTime = Number(visible.from);
       const highTime = Number(visible.to);
       const next: SignalBadge[] = [];
+      // Approximate rendered badge box (13px bold text + price) used to keep
+      // neighbouring labels from overlapping: a colliding label is stacked
+      // further away from its candle instead of being drawn on top.
+      const BADGE_WIDTH = 104;
+      const BADGE_HEIGHT = 28;
       const renderSide = (items: IndicatorSignals['buySignals'], side: 'BUY' | 'SELL') => {
         for (const signal of items) {
           if (signal.time < lowTime || signal.time > highTime) continue;
@@ -99,11 +108,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           const x = chart.timeScale().timeToCoordinate(signal.time as Time);
           const y = series.priceToCoordinate(side === 'BUY' ? candle.low : candle.high);
           if (x === null || y === null || x < 55 || x > canvas.clientWidth - 85) continue;
+          let top = side === 'BUY' ? y + 18 : y - 18;
+          for (let guard = 0; guard < 6; guard++) {
+            const clash = next.some((b) => b.side === side && Math.abs(b.left - x) < BADGE_WIDTH &&
+              Math.abs(b.top - top) < BADGE_HEIGHT);
+            if (!clash) break;
+            top += side === 'BUY' ? BADGE_HEIGHT : -BADGE_HEIGHT;
+          }
           next.push({
             key: `${side}-${signal.time}`,
             side,
             left: x,
-            top: side === 'BUY' ? y + 18 : y - 18,
+            top,
             price: signal.price.toFixed(badgePrecisionRef.current)
           });
           if (next.length >= 80) return;
@@ -163,7 +179,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     const container = chartContainerRef.current;
     const chart = createChart(container, {
       width: container.clientWidth,
-      height: isFullscreen ? Math.max(300, window.innerHeight - 125) : height,
+      height: container.clientHeight || (isFullscreen ? Math.max(300, window.innerHeight - 125) : height),
       layout: {
         background: { color: '#101216' },
         textColor: '#94a3b8'
@@ -245,37 +261,57 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       }
     });
 
-    // Handle container resize
+    // Track the container itself (fullscreen toolbar wrapping, layout changes,
+    // window resizes), not only window resize events.
     const handleResize = () => {
       if (chartContainerRef.current && chartApiRef.current) {
-        chartApiRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: isFullscreen ? Math.max(300, window.innerHeight - 125) : height
-        });
+        const width = chartContainerRef.current.clientWidth;
+        const nextHeight = chartContainerRef.current.clientHeight ||
+          (isFullscreen ? Math.max(300, window.innerHeight - 125) : height);
+        if (width > 0 && nextHeight > 0) chartApiRef.current.applyOptions({ width, height: nextHeight });
+        updateSignalBadges();
       }
     };
-
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(handleResize) : null;
+    resizeObserver?.observe(container);
     window.addEventListener('resize', handleResize);
+    // Price-scale drags and wheel zoom do not emit time-range events; keep the
+    // HTML signal labels attached to their candles during those interactions.
+    container.addEventListener('pointermove', updateSignalBadges);
+    container.addEventListener('pointerup', updateSignalBadges);
+    container.addEventListener('wheel', updateSignalBadges, { passive: true });
+    lineSeriesMapRef.current.clear();
+    setChartEpoch((epoch) => epoch + 1);
     return () => {
+      // Remember the viewport so a recreated chart (fullscreen toggle) keeps it.
+      const range = chart.timeScale().getVisibleLogicalRange();
+      savedLogicalRangeRef.current = range ? { from: range.from, to: range.to } : null;
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateSignalBadges);
       if (badgeFrameRef.current !== null) cancelAnimationFrame(badgeFrameRef.current);
       badgeFrameRef.current = null;
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(updateLiveArrow);
+      resizeObserver?.disconnect();
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('pointermove', updateSignalBadges);
+      container.removeEventListener('pointerup', updateSignalBadges);
+      container.removeEventListener('wheel', updateSignalBadges);
+      lineSeriesMapRef.current.clear();
       if (chartApiRef.current) {
         chartApiRef.current.remove();
         chartApiRef.current = null;
         markerPluginRef.current = null;
+        candleSeriesRef.current = null;
       }
     };
   }, [height, isFullscreen]);
 
-  // 2. Data update effect — smoothly updates candle data without destroying chart or resetting zoom
+  // 2. Candle data effect — updates candles without destroying the chart or
+  // resetting the user's zoom. Overlays and markers have their own effects so
+  // a live tick does not rebuild them.
   useEffect(() => {
     if (!chartApiRef.current || !candleSeriesRef.current) return;
     if (!candles || candles.length === 0) {
       candleSeriesRef.current.setData([]);
-      markerPluginRef.current?.setMarkers([]);
       plottedCandlesRef.current = [];
       candlesRef.current = [];
       candleLookupRef.current.clear();
@@ -292,72 +328,101 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     const precision = referencePrice > 0
       ? Math.max(2, Math.min(8, Math.ceil(-Math.log10(referencePrice)) + 3))
       : 2;
-    badgePrecisionRef.current = precision;
-    badgeSignalsRef.current = signals;
-    candleSeriesRef.current.applyOptions({
-      priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
-    });
+    if (badgePrecisionRef.current !== precision) {
+      badgePrecisionRef.current = precision;
+      candleSeriesRef.current.applyOptions({
+        priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
+      });
+    } else if (plottedCandlesRef.current.length === 0) {
+      candleSeriesRef.current.applyOptions({
+        priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
+      });
+    }
 
     const previous = plottedCandlesRef.current;
     const sameMarket = prevSymbolRef.current === symbol && prevTfRef.current === timeframeMinutes;
     const visibleTimeRange = sameMarket ? chartApiRef.current.timeScale().getVisibleRange() : null;
-    const canUpdateLast = sameMarket && previous.length > 0 &&
+    const prevLast = previous[previous.length - 1];
+    const canUpdateTail = sameMarket && previous.length > 0 &&
       previous[0].time === candles[0].time &&
-      candles.length >= previous.length && candles.length <= previous.length + 1 &&
-      candles[candles.length - 1].time >= previous[previous.length - 1].time;
-    if (canUpdateLast) {
-      const c = candles[candles.length - 1];
-      candleSeriesRef.current.update({ time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close });
+      (candles.length === previous.length || candles.length === previous.length + 1) &&
+      candles[previous.length - 1]?.time === prevLast.time;
+    const toBar = (c: OHLCV) => ({ time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close });
+    if (canUpdateTail) {
+      if (candles.length === previous.length + 1) {
+        // A new bar opened: first write the just-closed bar's FINAL OHLC
+        // (it changed after the last poll), then append the new bar.
+        candleSeriesRef.current.update(toBar(candles[candles.length - 2]));
+      }
+      candleSeriesRef.current.update(toBar(candles[candles.length - 1]));
     } else {
-      const formattedCandles: CandlestickData<Time>[] = candles.map((c) => ({
-        time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close
-      }));
-      candleSeriesRef.current.setData(formattedCandles);
-      // When a background 3m/1y download prepends older candles, Lightweight
-      // Charts changes logical bar indices. Restore the *time* viewport to
-      // avoid the visible chart jumping to another month while the user pans.
-      if (visibleTimeRange && previous.length > 0) {
+      candleSeriesRef.current.setData(candles.map(toBar));
+      if (previous.length === 0 && savedLogicalRangeRef.current && sameMarket) {
+        // Chart was recreated (fullscreen toggle): restore the same viewport.
+        chartApiRef.current.timeScale().setVisibleLogicalRange(savedLogicalRangeRef.current);
+        savedLogicalRangeRef.current = null;
+      } else if (visibleTimeRange && previous.length > 0) {
+        // When a background 3m/1y download prepends older candles, Lightweight
+        // Charts changes logical bar indices. Restore the *time* viewport to
+        // avoid the visible chart jumping to another month while the user pans.
         chartApiRef.current.timeScale().setVisibleRange(visibleTimeRange);
       }
     }
     plottedCandlesRef.current = candles;
+    updateSignalBadges();
 
-    // Indicator overlays
-    lineSeriesMapRef.current.forEach((series) => {
-      try {
-        chartApiRef.current?.removeSeries(series);
-      } catch {}
+    // Only auto-fit zoom when symbol or timeframe changes, NOT on every 3s live tick update
+    if (prevSymbolRef.current !== symbol || prevTfRef.current !== timeframeMinutes) {
+      prevSymbolRef.current = symbol;
+      prevTfRef.current = timeframeMinutes;
+      savedLogicalRangeRef.current = null;
+      chartApiRef.current.timeScale().fitContent();
+      setShowJumpToLive(false);
+    }
+  }, [candles, symbol, timeframeMinutes, chartEpoch]);
+
+  // 3. Signal labels follow the latest signals without touching candle data.
+  useEffect(() => {
+    badgeSignalsRef.current = signals;
+    updateSignalBadges();
+  }, [signals, chartEpoch]);
+
+  // 4. Indicator overlays — existing line series are updated in place instead
+  // of being removed and re-created on every live tick.
+  useEffect(() => {
+    const chart = chartApiRef.current;
+    if (!chart) return;
+    const wanted = showIndicators && signals?.plots ? signals.plots : [];
+    const wantedNames = new Set(wanted.map((plot) => plot.name));
+    lineSeriesMapRef.current.forEach((series, name) => {
+      if (!wantedNames.has(name)) {
+        try { chart.removeSeries(series); } catch {}
+        lineSeriesMapRef.current.delete(name);
+      }
     });
-    lineSeriesMapRef.current.clear();
-
-    if (showIndicators && signals && signals.plots) {
-      for (const plot of signals.plots) {
-        const lineSeries = chartApiRef.current.addSeries(LineSeries, {
+    for (const plot of wanted) {
+      let lineSeries = lineSeriesMapRef.current.get(plot.name);
+      if (!lineSeries) {
+        lineSeries = chart.addSeries(LineSeries, {
           color: plot.color,
           lineWidth: (plot.linewidth || 1) as any,
           title: plot.name,
           priceLineVisible: false,
           lastValueVisible: false
         });
-
-        const plotData: LineData<Time>[] = plot.data
-          .filter((d) => d.value !== undefined && !isNaN(d.value))
-          .map((d) => ({
-            time: d.time as Time,
-            value: d.value
-          }));
-
-        lineSeries.setData(plotData);
         lineSeriesMapRef.current.set(plot.name, lineSeries);
       }
+      const plotData: LineData<Time>[] = plot.data
+        .filter((d) => d.value !== undefined && !isNaN(d.value))
+        .map((d) => ({ time: d.time as Time, value: d.value }));
+      lineSeries.setData(plotData);
     }
+  }, [signals, showIndicators, chartEpoch]);
 
-    // BUY and SELL signal markers
-    const markers: SeriesMarker<Time>[] = [];
-
+  // 5. Selected trade entry / exit markers (Positions page).
+  useEffect(() => {
     // Signal labels are rendered as readable HTML badges instead of tiny canvas text.
-
-    // Selected Trade Entry & Exit markers if inspecting a trade
+    const markers: SeriesMarker<Time>[] = [];
     if (selectedTrade) {
       markers.push({
         time: selectedTrade.entryTime as Time,
@@ -380,19 +445,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         });
       }
     }
-
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markerPluginRef.current?.setMarkers(markers);
-    updateSignalBadges();
-
-    // Only auto-fit zoom when symbol or timeframe changes, NOT on every 3s live tick update
-    if (prevSymbolRef.current !== symbol || prevTfRef.current !== timeframeMinutes) {
-      prevSymbolRef.current = symbol;
-      prevTfRef.current = timeframeMinutes;
-      chartApiRef.current.timeScale().fitContent();
-      setShowJumpToLive(false);
-    }
-  }, [candles, signals, selectedTrade, showIndicators, symbol, timeframeMinutes]);
+  }, [selectedTrade, chartEpoch, candles.length > 0]);
 
   useEffect(() => { setHoveredCandle(null); }, [symbol, timeframeMinutes]);
 
