@@ -16,6 +16,7 @@ import {
 import { exchangeService } from './exchanges';
 import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
+import { ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
 
 export interface ActiveJob {
   run: BacktestRun;
@@ -50,27 +51,37 @@ export class BacktestService {
     portfolioConfig: PortfolioConfig,
     pnlConfig: PnLConfig,
     indicatorParams: Record<string, any>,
-    strategyName = 'KEYS v6 Liquidity Trap & SAR'
+    strategyName = 'KEYS v6 Liquidity Trap & SAR',
+    indicatorId = 'keys_v6'
   ): Promise<string> {
     const runId = `BT-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // Resolve symbol group
     const groups = storageService.getGroups();
-    const group = groups.find((g) => g.id === portfolioConfig.savedGroupId) || groups[0];
-    const symbols = group ? group.symbols : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
+    const group = groups.find((g) => g.id === portfolioConfig.savedGroupId);
+    if (!group || group.symbols.length === 0) throw new Error('Select a saved group containing at least one symbol.');
+    if (group.exchange !== portfolioConfig.exchange) throw new Error('Selected group exchange does not match the test exchange.');
+    const indicator = storageService.getIndicators().find((i) => i.id === indicatorId);
+    if (indicatorId !== 'keys_v6' || !indicator || indicator.code.trim() !== ORIGINAL_KEYS_PINE_SCRIPT.trim()) {
+      throw new Error('This Pine Script is not supported by the executable backtest engine. Select the original KEYS Liquidity Trap & SAR indicator; arbitrary Pine scripts are not executed.');
+    }
+    const testPeriodDays = Number(portfolioConfig.testPeriodDays || 30);
+    if (![30, 90, 180, 365].includes(testPeriodDays)) throw new Error('Historical test period must be 30, 90, 180, or 365 days.');
+    const symbols = group.symbols;
 
     const newRun: BacktestRun = {
       id: runId,
-      name: `${strategyName} on ${group.name} (${portfolioConfig.backtestTimeframe}m)`,
+      name: `${indicator.name} on ${group.name} (${portfolioConfig.backtestTimeframe}m)`,
       createdAt: new Date().toISOString(),
       exchange: portfolioConfig.exchange,
       symbolGroupId: group.id,
       symbolGroupName: group.name,
       symbolsCount: symbols.length,
       timeframeMinutes: portfolioConfig.backtestTimeframe,
-      strategyName,
-      testPeriodDays: 30, // standard backtest window
-      startDate: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+      strategyName: indicator.name,
+      indicatorId,
+      testPeriodDays,
+      startDate: new Date(Date.now() - testPeriodDays * 86400000).toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0],
       initialCapital: portfolioConfig.initialCapital,
       finalBalance: portfolioConfig.initialCapital,
@@ -144,7 +155,8 @@ export class BacktestService {
     // 2. Fetch OHLCV candles and compute indicator signals for all symbols
     run.logs.push(`Loading market candles for ${symbols.length} perpetual contracts on ${portfolioConfig.exchange}...`);
     const candleMap = new Map<string, OHLCV[]>();
-    const signalMap = new Map<string, { buyMap: Map<number, number>; sellMap: Map<number, number>; adxMap: Map<number, number>; rsiMap: Map<number, number> }>();
+    const signalMap = new Map<string, { buyMap: Map<number, { price: number; reason: string }>; sellMap: Map<number, { price: number; reason: string }>; adxMap: Map<number, number>; rsiMap: Map<number, number> }>();
+    const requestedBars = Math.ceil((run.testPeriodDays * 1440) / portfolioConfig.backtestTimeframe);
 
     for (let symIdx = 0; symIdx < symbols.length; symIdx++) {
       if (job.stopped) return;
@@ -158,23 +170,23 @@ export class BacktestService {
           portfolioConfig.exchange,
           sym,
           portfolioConfig.backtestTimeframe,
-          800 // ~800 bars
+          requestedBars
         );
-        if (candles.length === 0) {
-          run.logs.push(`[Notice] No active candles returned for ${sym} on ${portfolioConfig.exchange}. Skipping.`);
-          continue;
+        if (candles.length < requestedBars - 2) {
+          throw new Error(`Incomplete historical data for ${sym}: ${candles.length}/${requestedBars} candles; backtest cannot be marked completed.`);
         }
+        run.logs.push(`[DATA] ${sym}: ${candles.length} verified ${portfolioConfig.backtestTimeframe}m candles, ${new Date(candles[0].time * 1000).toISOString()} to ${new Date(candles[candles.length - 1].time * 1000).toISOString()}`);
         candleMap.set(sym, candles);
 
         // Compute indicator signals
         const indicatorResult = calculateKeysIndicator(candles, indicatorParams);
-        const buyMap = new Map<number, number>();
-        const sellMap = new Map<number, number>();
+        const buyMap = new Map<number, { price: number; reason: string }>();
+        const sellMap = new Map<number, { price: number; reason: string }>();
         const adxMap = new Map<number, number>();
         const rsiMap = new Map<number, number>();
 
-        indicatorResult.buySignals.forEach((s) => buyMap.set(s.time, s.price));
-        indicatorResult.sellSignals.forEach((s) => sellMap.set(s.time, s.price));
+        indicatorResult.buySignals.forEach((s) => buyMap.set(s.time, { price: s.price, reason: s.reason || 'KEYS v6 BUY' }));
+        indicatorResult.sellSignals.forEach((s) => sellMap.set(s.time, { price: s.price, reason: s.reason || 'KEYS v6 SELL' }));
 
         for (let i = 0; i < candles.length; i++) {
           const t = candles[i].time;
@@ -184,7 +196,7 @@ export class BacktestService {
 
         signalMap.set(sym, { buyMap, sellMap, adxMap, rsiMap });
       } catch (err: any) {
-        run.logs.push(`[Notice] Could not fetch data for ${sym} on ${portfolioConfig.exchange}: ${err.message}. Skipping.`);
+        throw new Error(`Cannot run complete ${run.testPeriodDays}-day test: ${err.message}`);
       }
     }
 
@@ -207,6 +219,9 @@ export class BacktestService {
     for (let t = minTime; t <= maxTime; t += stepSec) {
       timeline.push(t);
     }
+    run.startDate = new Date(minTime * 1000).toISOString().slice(0, 10);
+    run.endDate = new Date(maxTime * 1000).toISOString().slice(0, 10);
+    run.logs.push(`[DATA] Simulation uses actual ${run.startDate} through ${run.endDate} candles (requested ${run.testPeriodDays} days).`);
 
     // Fast candle index lookup
     const candleIndexMap = new Map<string, Map<number, OHLCV>>();
@@ -240,6 +255,8 @@ export class BacktestService {
       side: 'BUY' | 'SELL';
       adx: number;
       rsi: number;
+      signalTime: number;
+      reason: string;
     }
     let queuedEntries: QueuedSignal[] = [];
 
@@ -378,7 +395,9 @@ export class BacktestService {
               status: 'OPEN',
               cycleIndex,
               adxAtEntry: Number(queued.adx.toFixed(1)),
-              rsiAtEntry: Number(queued.rsi.toFixed(1))
+              rsiAtEntry: Number(queued.rsi.toFixed(1)),
+              entrySignalTime: queued.signalTime,
+              entrySignalReason: queued.reason
             };
 
             openPositions.push(newTrade);
@@ -518,6 +537,8 @@ export class BacktestService {
           side: 'BUY' | 'SELL';
           adx: number;
           rsi: number;
+          signalTime: number;
+          reason: string;
         }
         const candidateSignals: CandidateSignal[] = [];
 
@@ -534,9 +555,9 @@ export class BacktestService {
           const currentRsi = sigs.rsiMap.get(curTime) ?? 50;
 
           if (hasBuy) {
-            candidateSignals.push({ symbol: sym, side: 'BUY', adx: currentAdx, rsi: currentRsi });
+            candidateSignals.push({ symbol: sym, side: 'BUY', adx: currentAdx, rsi: currentRsi, signalTime: curTime, reason: sigs.buyMap.get(curTime)!.reason });
           } else if (hasSell) {
-            candidateSignals.push({ symbol: sym, side: 'SELL', adx: currentAdx, rsi: currentRsi });
+            candidateSignals.push({ symbol: sym, side: 'SELL', adx: currentAdx, rsi: currentRsi, signalTime: curTime, reason: sigs.sellMap.get(curTime)!.reason });
           }
         }
 
