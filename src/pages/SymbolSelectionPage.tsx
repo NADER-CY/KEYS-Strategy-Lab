@@ -227,14 +227,9 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     });
   }, [symbols, showSelectedOnly, selectedSymbols, categoryFilter, searchQuery]);
 
-  // Chunk into 100-symbol tabs (1-100, 101-200, 201-300, etc.)
-  const chunkSize = 100;
-  const totalChunks = Math.max(1, Math.ceil(filteredUniverse.length / chunkSize));
-
-  const currentChunkSymbols = useMemo(() => {
-    const start = activeChunkTab * chunkSize;
-    return filteredUniverse.slice(start, start + chunkSize);
-  }, [filteredUniverse, activeChunkTab]);
+  // Single searchable and sortable universe; pagination is handled below.
+  // Contract-range tabs were redundant and have been removed.
+  const currentChunkSymbols = filteredUniverse;
 
   // Display a single continuous financial table with internal pagination.
   const historicalPeriods = ['1H','2H','4H','12H','24H','48H','72H','1W','1M','3M'] as const;
@@ -302,7 +297,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   const categories = ['All', 'LAYER1', 'LAYER2', 'DeFi', 'AI', 'GameFi', 'Meme', 'Payments', 'NFT', 'Other'];
 
   return (
-    <div className="space-y-4 pb-12 animate-fadeIn">
+    <div className="space-y-4 pb-12 animate-fadeIn text-[#A6B4C8] [&_.text-white]:text-[#D8E2F0] [&_.text-slate-100]:text-[#D8E2F0] [&_.text-slate-200]:text-[#C5D0DE] [&_.text-slate-300]:text-[#A6B4C8] [&_.text-slate-400]:text-[#8393AA]">
       {/* ─── TOP SECTION: EXCHANGE & SYMBOL GROUP SELECTORS ─────────────── */}
       <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -447,33 +442,17 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               {cat}
             </button>
           ))}
+          <span className="ml-auto shrink-0 text-xs font-semibold text-slate-400">{selectedSymbols.length} selected</span>
+          <span className="shrink-0 text-xs font-semibold text-slate-400">Rows:</span>
+          {([25, 50, 75, 100] as const).map((count) => (
+            <button key={count} type="button" onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
+              className={`px-2 py-1 rounded font-bold text-xs tabular-nums ${rowsPerPage === count ? 'bg-[#1463FF] text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}>
+              {count}
+            </button>
+          ))}
         </div>
 
-        {/* Dynamic 100-Symbol Tabs (1-100, 101-200, 201-300, etc.) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#142033]">
-          <div className="flex items-center gap-2 overflow-x-auto py-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 shrink-0">
-              Contract Range:
-            </span>
-            {Array.from({ length: totalChunks }).map((_, idx) => {
-              const startIdx = idx * chunkSize + 1;
-              const endIdx = Math.min((idx + 1) * chunkSize, filteredUniverse.length);
-              return (
-                <button
-                  key={idx}
-                  onClick={() => { setActiveChunkTab(idx); setCurrentPage(1); }}
-                  className={`px-3 py-1 rounded-lg text-sm font-bold font-mono transition ${
-                    activeChunkTab === idx
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'bg-[#070b13] border border-[#19273c] text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {startIdx}–{endIdx}
-                </button>
-              );
-            })}
-          </div>
-
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
           {/* Show Selected Only Toggle */}
           <div className="flex items-center gap-2">
             <label className="flex items-center space-x-2 cursor-pointer bg-[#070b13] px-3 py-1.5 rounded-lg border border-[#19273c]">
@@ -558,21 +537,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
       {/* Compact full-width table: neutral background, no outer border or horizontal scrolling. */}
       <section className="min-w-0 w-full bg-transparent border-0 rounded-none px-0 py-2 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-slate-300">
-            <span className="font-semibold text-white">Futures Contracts</span>
-            <span className="text-slate-400 ml-3">{selectedInTab} selected in this 100-symbol tab</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-300" aria-label="Rows per page">
-            <span>Rows:</span>
-            {([25, 50, 75, 100] as const).map((count) => (
-              <button key={count} type="button"
-                onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
-                className={`px-2 py-1 rounded-md font-bold tabular-nums transition ${rowsPerPage === count ? 'bg-[#1463FF] text-white' : 'text-slate-300 hover:bg-white/5'}`}
-                aria-pressed={rowsPerPage === count}>{count}</button>
-            ))}
-          </div>
-        </div>
+        <div className="text-sm font-semibold text-[#D8E2F0]">Futures Contracts</div>
         {symbolsError && <div className="p-4 text-rose-400 font-semibold" role="alert">{symbolsError}</div>}
         {loadingChanges && currentExchange === 'bybit' && <div className="text-xs text-slate-400">Loading historical returns from Bybit...</div>}
         {loading ? <div className="p-8 text-center text-slate-300">Loading contracts...</div> : (
@@ -581,11 +546,11 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
               <colgroup>
                 {/* Keep Symbol and Last Price visually close; allocate room to Category. Total 100%. */}
                 <col style={{width:'3%'}} />
-                <col style={{width:'10%'}} />
-                <col style={{width:'7%'}} />
-                {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'6%'}} />)}
-                <col style={{width:'8%'}} />
-                <col style={{width:'12%'}} />
+                <col style={{width:'9%'}} />
+                <col style={{width:'9%'}} />
+                {Array.from({length:10}).map((_,i)=><col key={i} style={{width:'5.9%'}} />)}
+                <col style={{width:'9%'}} />
+                <col style={{width:'11%'}} />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-[#101216] text-slate-400 border-b border-white/[0.06]">
                 <tr>
@@ -636,7 +601,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                           {Number.isFinite(symbol.maxLeverage) && symbol.maxLeverage > 0 ? `${symbol.maxLeverage}×` : 'Leverage —'}
                         </div>
                       </td>
-                      <td className="pl-0 pr-1 py-2.5 text-right font-bold text-slate-200 text-[clamp(13px,1vw,17px)] truncate" title={String(symbol.lastPrice)}>
+                      <td className="pl-0 pr-1 py-2.5 text-right font-bold text-slate-200 text-[clamp(15px,1.16vw,19px)] truncate" title={String(symbol.lastPrice)}>
                         {Number.isFinite(symbol.lastPrice) && symbol.lastPrice > 0 ? symbol.lastPrice.toLocaleString('en-US', { maximumFractionDigits: 8 }) : '—'}
                       </td>
                       {historicalPeriods.map((period) => {
