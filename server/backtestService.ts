@@ -203,13 +203,16 @@ export class BacktestService {
         const adxMap = new Map<number, number>();
         const rsiMap = new Map<number, number>();
 
-        indicatorResult.buySignals.forEach((s) => buyMap.set(s.time, { price: s.price, reason: s.reason || 'KEYS v6 BUY' }));
-        indicatorResult.sellSignals.forEach((s) => sellMap.set(s.time, { price: s.price, reason: s.reason || 'KEYS v6 SELL' }));
+        const signalBarTime = (time: number) => indicatorParams.candleType === 'renko'
+          ? Math.floor(time / (portfolioConfig.backtestTimeframe * 60)) * (portfolioConfig.backtestTimeframe * 60)
+          : time;
+        indicatorResult.buySignals.forEach((s) => buyMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 BUY' }));
+        indicatorResult.sellSignals.forEach((s) => sellMap.set(signalBarTime(s.time), { price: s.price, reason: s.reason || 'KEYS v6 SELL' }));
 
         for (let i = 0; i < candles.length; i++) {
           const t = candles[i].time;
-          if (indicatorResult.adxValues[i] !== null) adxMap.set(t, indicatorResult.adxValues[i]!);
-          if (indicatorResult.rsiValues[i] !== null) rsiMap.set(t, indicatorResult.rsiValues[i]!);
+          if (Number.isFinite(indicatorResult.adxValues[i])) adxMap.set(t, indicatorResult.adxValues[i]!);
+          if (Number.isFinite(indicatorResult.rsiValues[i])) rsiMap.set(t, indicatorResult.rsiValues[i]!);
         }
 
         signalMap.set(sym, { buyMap, sellMap, adxMap, rsiMap });
