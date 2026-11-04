@@ -451,7 +451,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         </div>
 
         {/* Center: Timeframe Pills */}
-        <div className="flex items-center max-w-full overflow-x-auto bg-[#171920] p-1 rounded-xl border border-[#1a2436]">
+        <div className="flex items-center max-w-full overflow-x-auto bg-transparent p-1 border-0">
           {timeframes.map((tf) => (
             <button
               key={tf.label}
