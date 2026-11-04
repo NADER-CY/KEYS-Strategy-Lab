@@ -73,6 +73,13 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
   // Chart state
   const [currentSymbol, setCurrentSymbol] = useState<string>('BTCUSDT');
+  const activeGroup = savedGroups.find((g) => g.id === portfolioConfig.savedGroupId) || savedGroups[0];
+  const chartSymbolList = activeGroup?.symbols.length
+    ? activeGroup.symbols
+    : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT'];
+  // A group switch can remove BTC from the selector. Never display BTC candles
+  // beneath the browser's fallback first option (e.g. OGUSDT).
+  const displayedSymbol = chartSymbolList.includes(currentSymbol) ? currentSymbol : chartSymbolList[0];
   const [chartTimeframe, setChartTimeframe] = useState<number>(5);
   const [candles, setCandles] = useState<OHLCV[]>([]);
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
@@ -114,14 +121,21 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     }
   }, [initialSymbol]);
 
+  useEffect(() => {
+    if (displayedSymbol !== currentSymbol) setCurrentSymbol(displayedSymbol);
+  }, [displayedSymbol, currentSymbol]);
+
   // Initial load when symbol or chart timeframe changes
   useEffect(() => {
     let isCancelled = false;
+    setCandles([]);
+    setSignals(undefined);
+    setFeedHealthy(false);
     const fetchCandles = async () => {
       setLoadingChart(true);
       try {
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${currentSymbol}&timeframe=${chartTimeframe}&limit=400`
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400`
         );
         if (res.ok) {
           const data = await res.json();
@@ -143,7 +157,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [currentSymbol, chartTimeframe, portfolioConfig.exchange]);
+  }, [displayedSymbol, chartTimeframe, portfolioConfig.exchange]);
 
   // Live real-time polling every 3.5 seconds
   useEffect(() => {
@@ -156,7 +170,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       inFlight = true;
       try {
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${currentSymbol}&timeframe=${chartTimeframe}&limit=400&live=1`,
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400&live=1`,
           { cache: 'no-store' }
         );
         if (res.ok) {
@@ -183,14 +197,14 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [isLiveActive, isBacktestRunning, currentSymbol, chartTimeframe, portfolioConfig.exchange, localParams]);
+  }, [isLiveActive, isBacktestRunning, displayedSymbol, chartTimeframe, portfolioConfig.exchange, localParams]);
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
     setLoadingChart(true);
     try {
       const res = await fetch(
-        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${currentSymbol}&timeframe=${chartTimeframe}&limit=400`
+        `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${displayedSymbol}&timeframe=${chartTimeframe}&limit=400`
       );
       if (res.ok) {
         const data = await res.json();
@@ -269,19 +283,12 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   };
 
   // Active Symbol Group
-  const activeGroup =
-    savedGroups.find((g) => g.id === portfolioConfig.savedGroupId) || savedGroups[0];
   const groupSymbolsCount = activeGroup ? activeGroup.symbols.length : 0;
 
   // Calculate estimated initial margin
   const appliedLev = portfolioConfig.useMaxLeverage ? 50 : portfolioConfig.manualLeverage;
   const estimatedInitialMargin = (portfolioConfig.positionSizeNotional / appliedLev).toFixed(2);
 
-  // Available symbols for chart selector
-  const chartSymbolList =
-    activeGroup && activeGroup.symbols.length > 0
-      ? activeGroup.symbols
-      : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT'];
 
   return (
     <div className="space-y-4 pb-8 animate-fadeIn">
@@ -362,7 +369,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       {/* ─── 1. TOP CANDLESTICK CHART (Desktop height: 520px) ───────────────── */}
       <section className="space-y-2">
         <CandlestickChart
-          symbol={currentSymbol}
+          symbol={displayedSymbol}
           onSymbolChange={setCurrentSymbol}
           availableSymbols={chartSymbolList}
           candles={candles}
@@ -391,7 +398,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             </span>
             <span className="text-slate-600">|</span>
             <span>
-              Symbol: <strong className="text-white text-base font-bold">{currentSymbol}</strong>
+              Symbol: <strong className="text-white text-base font-bold">{displayedSymbol}</strong>
             </span>
             <span className="text-slate-600">|</span>
             <span>
