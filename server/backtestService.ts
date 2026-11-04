@@ -67,7 +67,14 @@ export class BacktestService {
 
     // Resolve symbol group
     const groups = storageService.getGroups();
-    const group = groups.find((g) => g.id === portfolioConfig.savedGroupId);
+    const group = portfolioConfig.savedGroupId === '__all_exchange__'
+      ? {
+          id: '__all_exchange__',
+          name: `All ${portfolioConfig.exchange.toUpperCase()} Symbols`,
+          exchange: portfolioConfig.exchange,
+          symbols: (await exchangeService.getLiveSymbols(portfolioConfig.exchange)).map((symbol) => symbol.symbol)
+        }
+      : groups.find((g) => g.id === portfolioConfig.savedGroupId);
     if (!group || group.symbols.length === 0) throw new Error('Select a saved group containing at least one symbol.');
     if (group.exchange !== portfolioConfig.exchange) throw new Error('Selected group exchange does not match the test exchange.');
     const indicator = storageService.getIndicators().find((i) => i.id === indicatorId);
