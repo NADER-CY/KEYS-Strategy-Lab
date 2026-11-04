@@ -16,7 +16,7 @@ import { parsePineScriptInputs, validatePineScript } from '../engine/defaultPine
 interface ChartBacktestPageProps {
   activeStrategy: string;
   onStrategyChange: (strategy: string) => void;
-  onSaveConfig?: () => void;
+  onSaveConfig?: () => Promise<void>;
   onLoadConfig?: () => void;
   onResetConfig?: () => void;
   portfolioConfig: PortfolioConfig;
@@ -70,6 +70,31 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 }) => {
   // Active settings tab below the chart
   const [activeTab, setActiveTab] = useState<'strategy' | 'pnl' | 'indicator' | 'pinescript'>('strategy');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saveSucceeded, setSaveSucceeded] = useState(false);
+
+  const openSaveDialog = () => {
+    setSaveMessage('');
+    setSaveSucceeded(false);
+    setShowSaveDialog(true);
+  };
+  const confirmSaveConfig = async () => {
+    if (!onSaveConfig) return;
+    setSavingConfig(true);
+    setSaveMessage('');
+    try {
+      await onSaveConfig();
+      setSaveSucceeded(true);
+      setSaveMessage('Settings saved successfully on the server.');
+    } catch (err: any) {
+      setSaveSucceeded(false);
+      setSaveMessage(`Save failed: ${err?.message || 'Unknown server error'}`);
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   // Chart state
   const [currentSymbol, setCurrentSymbol] = useState<string>('BTCUSDT');
@@ -311,7 +336,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             <option value="Dynamic VWAP Bands">Dynamic VWAP Bands</option>
             <option value="Custom Pine Script">Custom Pine Script</option>
           </select>
-          <button type="button" onClick={onSaveConfig} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
+          <button type="button" onClick={openSaveDialog} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
             <span className="material-symbols-outlined !text-[16px]">save</span>Save
           </button>
           <button type="button" onClick={onLoadConfig} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#171920] border border-[#243044] text-slate-200 hover:text-[#1463FF] text-sm font-semibold">
@@ -470,7 +495,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                 </h2>
               </div>
               <button
-                onClick={() => alert('Portfolio & cycle management parameters saved to local persistence.')}
+                onClick={openSaveDialog}
                 className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
               >
                 <span className="material-symbols-outlined !text-[17px]">save</span>
@@ -1262,6 +1287,45 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           </div>
         </div>
       </section>
+      {showSaveDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4" role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !savingConfig) setShowSaveDialog(false); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="save-lab-settings-title"
+            className="w-full max-w-md rounded-xl border border-[#243044] bg-[#171920] p-5 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="material-symbols-outlined text-[#1463FF] !text-[25px]">save</span>
+              <h3 id="save-lab-settings-title" className="text-lg font-bold text-white">Save Lab Settings</h3>
+            </div>
+            <p className="text-sm leading-relaxed text-slate-300">
+              Save the current symbol group, exchange, capital, backtest period, margin, PnL rules and selected indicator on the server?
+            </p>
+            <div className="mt-3 rounded-lg bg-[#101216] p-3 text-sm text-slate-300">
+              <span className="font-bold text-white">{activeIndicator.name}</span>
+              <span className="mx-2 text-slate-600">•</span>
+              {portfolioConfig.testPeriodDays || 30} days
+              <span className="mx-2 text-slate-600">•</span>
+              {portfolioConfig.backtestTimeframe}m
+            </div>
+            {saveMessage && (
+              <div role="status" className={`mt-3 rounded-lg border px-3 py-2 text-sm ${saveSucceeded ? 'border-[#0BBA74]/40 bg-[#0BBA74]/10 text-[#0BBA74]' : 'border-[#FF4761]/40 bg-[#FF4761]/10 text-[#FF4761]'}`}>
+                {saveMessage}
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={savingConfig} onClick={() => setShowSaveDialog(false)}
+                className="rounded-lg border border-[#243044] px-4 py-2 text-sm font-semibold text-slate-300 disabled:opacity-50">
+                {saveSucceeded ? 'Close' : 'Cancel'}
+              </button>
+              {!saveSucceeded && (
+                <button type="button" disabled={savingConfig} onClick={confirmSaveConfig}
+                  className="rounded-lg bg-[#1463FF] px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
+                  {savingConfig ? 'Saving...' : 'Save Settings'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
