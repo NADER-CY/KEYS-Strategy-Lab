@@ -1104,7 +1104,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
                   <span className="text-sm font-semibold text-slate-200">Enable SAR Direction Filter</span>
                   <input
                     type="checkbox"
-                    checked={localParams['useSARFilter'] ?? false}
+                    checked={localParams['useSARFilter'] ?? true}
                     onChange={(e) => setLocalParams({ ...localParams, useSARFilter: e.target.checked })}
                     className="rounded border-slate-700 text-blue-600 focus:ring-0 w-4 h-4 bg-slate-900 cursor-pointer"
                   />
