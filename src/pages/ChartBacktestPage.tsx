@@ -78,6 +78,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
   const [loadingChart, setLoadingChart] = useState<boolean>(false);
   const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
+  const [feedHealthy, setFeedHealthy] = useState<boolean>(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
 
   // Pine script editor state
@@ -149,22 +150,32 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     if (!isLiveActive || isBacktestRunning) return;
 
     let isCancelled = false;
+    let inFlight = false;
     const interval = setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await fetch(
-          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${currentSymbol}&timeframe=${chartTimeframe}&limit=400`
+          `/api/candles?exchange=${portfolioConfig.exchange}&symbol=${currentSymbol}&timeframe=${chartTimeframe}&limit=400&live=1`,
+          { cache: 'no-store' }
         );
         if (res.ok) {
           const data = await res.json();
           if (!isCancelled && Array.isArray(data) && data.length > 0) {
-            setCandles(data);
-            const calculated = calculateKeysIndicator(data, localParams);
-            setSignals(calculated);
+            setCandles((previous) => {
+              const a = previous[previous.length - 1];
+              const b = data[data.length - 1];
+              return previous.length === data.length && a?.time === b?.time && a?.close === b?.close && a?.high === b?.high && a?.low === b?.low && a?.volume === b?.volume ? previous : data;
+            });
+            setSignals(calculateKeysIndicator(data, localParams));
+            setFeedHealthy(true);
             setLastRefreshedAt(new Date());
           }
-        }
+        } else if (!isCancelled) setFeedHealthy(false);
       } catch {
-        // silent background poll fail
+        if (!isCancelled) setFeedHealthy(false);
+      } finally {
+        inFlight = false;
       }
     }, 3500);
 
@@ -374,8 +385,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold ${
                 isLiveActive ? 'bg-emerald-950/80 text-[#0BBA74] border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${isLiveActive ? 'bg-[#0BBA74] animate-pulse' : 'bg-slate-500'}`} />
-                {portfolioConfig.exchange.toUpperCase()} {isLiveActive ? 'LIVE (3.5s)' : 'PAUSED'}
+                <span className={`w-2 h-2 rounded-full ${isLiveActive && feedHealthy ? 'bg-[#0BBA74] animate-pulse' : 'bg-slate-500'}`} />
+                {portfolioConfig.exchange.toUpperCase()} {isLiveActive ? (feedHealthy ? 'LIVE (3.5s)' : 'CONNECTING') : 'PAUSED'}
               </span>
             </span>
             <span className="text-slate-600">|</span>
