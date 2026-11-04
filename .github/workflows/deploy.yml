@@ -53,9 +53,9 @@ jobs:
             exit 1
           fi
           echo "=== FETCH GITHUB ==="
-          git fetch origin main
+          git -c remote.origin.url=https://github.com/NADER-CY/KEYS-Strategy-Lab.git fetch origin main
           OLD="$(git rev-parse HEAD)"
-          NEW="$(git rev-parse origin/main)"
+          NEW="$(git rev-parse FETCH_HEAD)"
           MARKER=".cache/keys-production-commit"
           if [ "$OLD" = "$NEW" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$NEW" ]; then
             echo "SOURCE AND BUILT PRODUCTION VERSION ARE CURRENT"
@@ -74,7 +74,7 @@ jobs:
           trap rollback ERR
           if [ "$OLD" != "$NEW" ]; then
             echo "=== APPLY NEW SOURCE ==="
-            git merge --ff-only origin/main
+            git merge --ff-only FETCH_HEAD
           fi
           echo "=== BUILD ==="
           export PATH="/root/.nvm/versions/node/v22.23.4/bin:$PATH"
