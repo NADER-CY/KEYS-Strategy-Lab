@@ -107,13 +107,16 @@ async function startServer() {
       const symbol = (req.query.symbol as string) || 'BTCUSDT';
       const timeframeMinutes = Number(req.query.timeframe) || 5;
       const limit = Number(req.query.limit) || 500;
+      const live = req.query.live === '1';
 
       const candles = await exchangeService.getOHLCVCandles(
         exchange,
         symbol,
         timeframeMinutes,
-        limit
+        limit,
+        live
       );
+      res.set('Cache-Control', 'no-store');
       res.json(candles);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
