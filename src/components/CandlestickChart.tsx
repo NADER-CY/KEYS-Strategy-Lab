@@ -401,7 +401,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         </div>
 
         {/* Right: Live Ticker Indicator, Overlay toggle, signals badge & Fullscreen */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="order-first flex w-full flex-wrap items-center justify-end gap-2">
           {/* Real-time live status pill */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-bold shadow-sm">
             <span className="relative flex h-2 w-2">
