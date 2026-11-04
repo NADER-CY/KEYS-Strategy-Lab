@@ -34,9 +34,7 @@ async function startServer() {
       const exchange = (req.query.exchange as ExchangeId) || 'bybit';
       const category = req.query.category as string;
       const search = String(req.query.search || '').toUpperCase();
-      let symbols = exchange === 'bybit'
-        ? await exchangeService.getBybitSymbols()
-        : exchangeService.getSymbols(exchange);
+      let symbols = await exchangeService.getLiveSymbols(exchange);
       if (category && category.toLowerCase() !== 'all') {
         symbols = symbols.filter((s) => s.category.toUpperCase() === category.toUpperCase());
       }
