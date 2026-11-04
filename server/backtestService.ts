@@ -16,6 +16,7 @@ import {
 import { exchangeService } from './exchanges';
 import { storageService } from './storage';
 import { calculateKeysIndicator } from '../src/engine/indicatorCalculations';
+import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
 import { ORIGINAL_KEYS_PINE_SCRIPT } from '../src/engine/defaultPineScripts';
 import { hasCycleReachedExpiry } from '../src/engine/cycleTiming';
 
@@ -613,31 +614,17 @@ export class BacktestService {
       }
     }
 
-    // 6. Close remaining open positions at end of backtest
+    // 6. Mark remaining positions to market. The historical window ending is
+    // NOT an order to liquidate a losing cycle awaiting breakeven.
     const finalTime = timeline[timeline.length - 1];
-    for (const pos of openPositions) {
-      const c = candleIndexMap.get(pos.symbol)?.get(finalTime);
-      closeTrade(pos, c ? c.close : pos.entryPrice, finalTime, 'BACKTEST_END');
-    }
-
-    // Record final cycle if open
-    if (cycleStartTime !== null && (completedCycles.length === 0 || completedCycles[completedCycles.length - 1].cycleIndex !== cycleIndex)) {
-      completedCycles.push({
-        cycleIndex,
-        startTime: cycleStartTime ?? finalTime,
-        endTime: finalTime,
-        startEquity: Number(cycleStartEquity.toFixed(2)),
-        endEquity: Number(accountBalance.toFixed(2)),
-        peakProfitPct: Number(cyclePeakProfitPct.toFixed(2)),
-        exitFloorPct: 0,
-        exitReason: 'BACKTEST_END',
-        tradesCount: closedTrades.filter((t) => t.cycleIndex === cycleIndex).length,
-        realizedPnl: Number((accountBalance - cycleStartEquity).toFixed(2))
-      });
+    const unrealizedPnl = markOpenPositionsAtEnd(openPositions, (symbol) => candleIndexMap.get(symbol)?.get(finalTime)?.close);
+    if (openPositions.length > 0) {
+      run.logs.push(`Backtest window ended with ${openPositions.length} OPEN position(s), unrealized PnL $${unrealizedPnl.toFixed(2)}. No forced exit; cycle #${cycleIndex} remains incomplete.`);
     }
 
     // 6. Metrics & Reporting
-    const netPnl = Number((accountBalance - portfolioConfig.initialCapital).toFixed(2));
+    const finalEquity = accountBalance + unrealizedPnl;
+    const netPnl = Number((finalEquity - portfolioConfig.initialCapital).toFixed(2));
     const roiPct = Number(((netPnl / portfolioConfig.initialCapital) * 100).toFixed(2));
     const winningTrades = closedTrades.filter((t) => t.pnlUsdt > 0);
     const losingTrades = closedTrades.filter((t) => t.pnlUsdt <= 0);
@@ -650,7 +637,10 @@ export class BacktestService {
     const durationSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
 
     run.status = 'COMPLETED';
-    run.finalBalance = Number(accountBalance.toFixed(2));
+    run.finalBalance = Number(finalEquity.toFixed(2));
+    run.cashBalance = Number(accountBalance.toFixed(2));
+    run.unrealizedPnl = Number(unrealizedPnl.toFixed(2));
+    run.openPositionsCount = openPositions.length;
     run.netPnl = netPnl;
     run.roiPct = roiPct;
     run.winRate = winRate;
@@ -662,7 +652,7 @@ export class BacktestService {
     run.losingTrades = losingTrades.length;
     run.completedCycles = completedCycles.length;
     run.durationSec = durationSec;
-    run.trades = closedTrades;
+    run.trades = [...closedTrades, ...openPositions];
     run.cycles = completedCycles;
     run.equityCurve = equityCurve;
 
