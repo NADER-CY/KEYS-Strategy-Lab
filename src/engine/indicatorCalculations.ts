@@ -21,6 +21,30 @@ export interface KeysIndicatorOptions {
 }
 
 /**
+ * TradingView Heikin Ashi bars calculated from exchange OHLCV.
+ * Keep exchange volume unchanged: TradingView's Pine `volume` is not synthetic.
+ * Do not use these synthetic prices for actual order fills or P&L valuation.
+ */
+export function toHeikinAshiCandles(candles: OHLCV[]): OHLCV[] {
+  let previousOpen = 0;
+  let previousClose = 0;
+  return candles.map((c, index) => {
+    const close = (c.open + c.high + c.low + c.close) / 4;
+    const open = index === 0 ? (c.open + c.close) / 2 : (previousOpen + previousClose) / 2;
+    previousOpen = open;
+    previousClose = close;
+    return {
+      time: c.time,
+      open,
+      high: Math.max(c.high, open, close),
+      low: Math.min(c.low, open, close),
+      close,
+      volume: c.volume
+    };
+  });
+}
+
+/**
  * Simple Moving Average
  */
 export function sma(data: number[], period: number): (number | null)[] {
@@ -315,12 +339,16 @@ export function calculateKeysIndicator(
     };
   }
 
-  const opens = candles.map((c) => c.open);
-  const highs = candles.map((c) => c.high);
-  const lows = candles.map((c) => c.low);
-  const closes = candles.map((c) => c.close);
-  const volumes = candles.map((c) => c.volume);
-  const times = candles.map((c) => c.time);
+  // The user's TradingView AKEUSDT 15m CSV contains Heikin Ashi OHLC (its
+  // exported SELL shape is 2026-09-19 08:00 UTC). Calculate indicator signals
+  // on those same synthetic candles; execution still uses real Bybit OHLC.
+  const signalCandles = toHeikinAshiCandles(candles);
+  const opens = signalCandles.map((c) => c.open);
+  const highs = signalCandles.map((c) => c.high);
+  const lows = signalCandles.map((c) => c.low);
+  const closes = signalCandles.map((c) => c.close);
+  const volumes = signalCandles.map((c) => c.volume);
+  const times = signalCandles.map((c) => c.time);
 
   // 1. RSI
   const rsiArr = rsi(closes, rsiPeriod);
