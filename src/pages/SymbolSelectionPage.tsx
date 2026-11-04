@@ -488,7 +488,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap py-1" role="group" aria-label="Choose a saved group">
         {savedGroups.map((group) => (
-          <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg border-b-2 text-sm font-semibold transition-colors ${activeGroup?.id === group.id ? 'border-[#1463FF] bg-[#1463FF]/10 text-white' : 'border-transparent bg-[#171920]/70 text-slate-300 hover:bg-[#1B2433]'}`}>
+          <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg text-sm font-semibold transition-colors ${activeGroup?.id === group.id ? 'bg-[#1463FF] text-white' : 'bg-transparent text-slate-300 hover:text-white hover:bg-slate-800/40'}`}>
             <button type="button" aria-current={activeGroup?.id === group.id ? 'true' : undefined}
               onClick={() => {
                 setActiveGroupId(group.id);
@@ -497,13 +497,13 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 setSearchQuery('');
                 setCurrentPage(1);
               }}
-              className="flex max-w-56 items-center gap-2 rounded-l-lg py-2 pl-3 pr-2 hover:text-[#78A6FF]">
+              className="flex max-w-56 items-center gap-2 rounded-l-lg py-2 pl-3 pr-2">
               <span className="truncate" title={group.name}>{group.name}</span>
-              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${activeGroup?.id === group.id ? 'bg-[#1463FF]/25 text-[#9BBEFF]' : 'bg-[#242B37] text-slate-400'}`}>{group.symbols.length}</span>
+              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${activeGroup?.id === group.id ? 'bg-white/20 text-white' : 'bg-[#242B37] text-slate-400'}`}>{group.symbols.length}</span>
             </button>
             <button type="button" title={`Delete ${group.name}`} aria-label={`Delete group ${group.name}`}
               onClick={() => handleDeleteGroup(group)}
-              className="mr-1 rounded-md p-1.5 text-slate-500 hover:bg-[#FF4761]/10 hover:text-[#FF4761]">
+              className={`mr-1 rounded-md p-1.5 hover:bg-[#FF4761]/20 hover:text-[#FF4761] ${activeGroup?.id === group.id ? 'text-white/70' : 'text-slate-500'}`}>
               <span className="material-symbols-outlined !text-[16px] align-middle">close</span>
             </button>
           </div>
