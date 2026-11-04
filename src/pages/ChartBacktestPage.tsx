@@ -163,6 +163,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
 
   // Pine script editor state
   const [editorCode, setEditorCode] = useState<string>(activeIndicator.code);
+  const [isAddIndicatorOpen, setIsAddIndicatorOpen] = useState(false);
+  const [newIndicatorName, setNewIndicatorName] = useState('');
   const [compileStatus, setCompileStatus] = useState<{ valid: boolean; message: string }>({
     valid: true,
     message: 'Compiled successfully (v6) • 14 inputs discovered'
@@ -462,7 +464,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
       setCompileStatus({ valid: false, message: result.error || 'Invalid Pine inputs' });
       return;
     }
-    const proposedName = window.prompt('Name this Pine indicator:', 'My Pine Indicator')?.trim();
+    const proposedName = newIndicatorName.trim();
     if (!proposedName) return;
     const uniqueName = proposedName;
     const newIndicator: SavedIndicator = {
@@ -477,6 +479,8 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
     try {
       await onSaveIndicator(newIndicator);
       onSelectIndicator(newIndicator);
+      setIsAddIndicatorOpen(false);
+      setNewIndicatorName('');
       setCompileStatus({ valid: true, message: isUtBotAlertsScript(editorCode)
         ? `Saved '${uniqueName}' • UT Bot backtest engine available.`
         : `Saved '${uniqueName}'. Backtesting requires a verified adapter for this Pine script.` });
@@ -1270,66 +1274,62 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
         {/* ─── TAB 4: PINE SCRIPT TAB ─────────────────────────────────────── */}
         {activeTab === 'pinescript' && (
           <div className="space-y-4 animate-fadeIn">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center space-x-2.5">
-                <span className="material-symbols-outlined text-purple-400 !text-xl">code</span>
-                <h2 className="text-lg font-bold text-purple-400 tracking-wide">
-                  Pine Script Indicator Engine & Input Discovery
-                </h2>
-              </div>
-              <div className="flex items-center space-x-2.5">
-                <button
-                  onClick={handleSaveNewScript}
-                  className="px-4 py-2 rounded-lg bg-[#1463FF] hover:bg-blue-600 text-white text-sm font-semibold"
-                >
-                  Save as New Indicator
-                </button>
-                <button
-                  onClick={handleCompileScript}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition"
-                >
-                  <span className="material-symbols-outlined !text-[17px]">check_circle</span>
-                  <span>Check Inputs & Save</span>
-                </button>
-              </div>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-base font-bold text-slate-100">Saved Indicators ({indicators.length})</h2>
+              <button type="button" onClick={() => {
+                setNewIndicatorName('');
+                setEditorCode('');
+                setCompileStatus({ valid: true, message: '' });
+                setIsAddIndicatorOpen(true);
+              }} className="rounded-lg bg-[#1463FF] px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-500">
+                + Add Indicator
+              </button>
             </div>
-
-            {/* Validation Message Bar */}
-            <div
-              className={`p-3 rounded-lg border text-sm flex items-center justify-between ${
-                compileStatus.valid
-                  ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-300'
-                  : 'bg-rose-950/20 border-rose-800/40 text-rose-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <span className="font-bold">{compileStatus.valid ? '✓' : '⚠'}</span>
-                <span>{compileStatus.message}</span>
-              </div>
-              <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-black/40 border border-white/10">
-                INPUT PARSER · NOT A PINE RUNTIME
-              </span>
-            </div>
-
-            {/* Code Editor */}
-            <div className="relative rounded-xl border border-[#19273c] bg-[#171920] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2 bg-[#171920] border-b border-[#152236] text-xs text-slate-300 font-mono">
-                <span>KEYS_Strategy_Indicator.pine</span>
-                <span>Auto-discovers input(), input.int(), input.float(), input.bool()</span>
-              </div>
-              <textarea
-                value={editorCode}
-                onChange={(e) => setEditorCode(e.target.value)}
-                rows={14}
-                className="w-full bg-[#171920] p-4 text-sm font-mono text-emerald-300 leading-relaxed focus:outline-none resize-y selection:bg-blue-600 selection:text-white"
-                spellCheck={false}
-              />
+            <div className="divide-y divide-[#26303d]">
+              {indicators.map((indicator) => (
+                <div key={indicator.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-slate-100">{indicator.name}</div>
+                    <div className="text-xs text-slate-400">Pine {indicator.version} · {indicator.validationStatus || 'Saved'}</div>
+                  </div>
+                  <button type="button" onClick={() => { onSelectIndicator(indicator); setActiveTab('indicator'); }}
+                    className="rounded-lg border border-[#26303d] px-3 py-1.5 text-sm text-blue-400">Select</button>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </section>
 
       {/* ─── 3. BOTTOM GREEN ACTION BAR ─────────────────────────────────── */}
+      {isAddIndicatorOpen && (
+        <div className="fixed inset-0 z-[110] overflow-y-auto bg-[#101216] px-5 py-6 sm:px-10" role="dialog" aria-modal="true" aria-label="Add Pine Script indicator">
+          <div className="mx-auto max-w-5xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#26303d] pb-4">
+              <h2 className="text-xl font-bold text-white">Add Indicator</h2>
+              <button type="button" onClick={() => setIsAddIndicatorOpen(false)} className="text-sm font-semibold text-slate-300 hover:text-white">✕ Close</button>
+            </div>
+            <label className="block space-y-2 text-sm font-semibold text-slate-200">
+              <span>Indicator Name</span>
+              <input value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)}
+                placeholder="e.g. EMA 50" maxLength={100}
+                className="w-full rounded-lg border border-[#26303d] bg-[#101216] px-4 py-3 text-white focus:border-[#1463FF] focus:outline-none" />
+            </label>
+            <label className="block space-y-2 text-sm font-semibold text-slate-200">
+              <span>Pine Script</span>
+              <textarea value={editorCode} onChange={(e) => setEditorCode(e.target.value)} rows={20}
+                placeholder="Paste your Pine Script here…" spellCheck={false}
+                className="min-h-[45vh] w-full rounded-lg border border-[#26303d] bg-[#101216] p-4 font-mono text-sm leading-relaxed text-emerald-300 focus:border-[#1463FF] focus:outline-none" />
+            </label>
+            {!compileStatus.valid && <div role="alert" className="text-sm text-[#FF4761]">{compileStatus.message}</div>}
+            <div className="flex justify-end gap-3 border-t border-[#26303d] pt-4">
+              <button type="button" onClick={() => setIsAddIndicatorOpen(false)} className="rounded-lg border border-[#26303d] px-5 py-2.5 text-sm text-slate-200">Cancel</button>
+              <button type="button" onClick={handleSaveNewScript} disabled={!newIndicatorName.trim() || !editorCode.trim()}
+                className="rounded-lg bg-[#1463FF] px-6 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Save Indicator</button>
+            </div>
+          </div>
+        </div>
+      )}
       {activeIndicator.id !== 'keys_v6' && !isUtBotAlertsScript(activeIndicator.code) && (
         <div role="status" className="rounded-lg border border-amber-700/40 bg-amber-950/20 px-4 py-2 text-sm text-amber-300">
           Script saved and selectable. Backtesting is not enabled for this Pine script yet; its buy/sell conditions must be implemented and verified first.
