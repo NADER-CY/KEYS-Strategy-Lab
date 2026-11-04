@@ -306,7 +306,7 @@ export function calculateKeysIndicator(
   const adxlen = Number(options.adxlen ?? 14);
   const dilen = Number(options.dilen ?? 14);
   const Adx_trendThreshold = Number(options.Adx_trendThreshold ?? 30);
-  const useSARFilter = Boolean(options.useSARFilter);
+  const useSARFilter = Boolean(options.useSARFilter ?? true);
   const sarStart = Number(options.sarStart ?? 0.02);
   const sarIncrement = Number(options.sarIncrement ?? 0.02);
   const sarMaximum = Number(options.sarMaximum ?? 0.2);
