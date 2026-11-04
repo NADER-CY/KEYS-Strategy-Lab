@@ -422,7 +422,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       {/* ─── FILTERS, SEARCH & DYNAMIC 100-SYMBOL TABS ─────────────────── */}
       <section className="bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
         {/* Category Pills Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-4 overflow-x-auto whitespace-nowrap pb-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
             Category:
           </span>
@@ -433,10 +433,10 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 setCategoryFilter(cat);
                 setActiveChunkTab(0);
               }}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              className={`px-0 py-1 text-xs font-semibold shrink-0 bg-transparent border-0 rounded-none transition-colors hover:text-[#1463FF] ${
                 categoryFilter === cat
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-[#070b13] border border-[#172338] text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'text-[#1463FF]'
+                  : 'text-slate-300 hover:text-[#1463FF]'
               }`}
             >
               {cat}
@@ -446,7 +446,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
           <span className="shrink-0 text-xs font-semibold text-slate-400">Rows:</span>
           {([25, 50, 75, 100] as const).map((count) => (
             <button key={count} type="button" onClick={() => { setRowsPerPage(count); setCurrentPage(1); }}
-              className={`px-2 py-1 rounded font-bold text-xs tabular-nums ${rowsPerPage === count ? 'bg-[#1463FF] text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}>
+              className={`px-0 py-1 font-bold text-xs tabular-nums bg-transparent border-0 rounded-none transition-colors hover:text-[#1463FF] ${rowsPerPage === count ? 'text-[#1463FF]' : 'text-slate-400'}`}>
               {count}
             </button>
           ))}
