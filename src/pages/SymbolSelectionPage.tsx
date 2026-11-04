@@ -479,11 +479,16 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
       </section>
 
-      {/* Saved groups: one compact row above search; selecting a group scopes the table. */}
-      <nav aria-label="Saved symbol groups" className="flex items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[#243044] pb-3">
-        <span className="shrink-0 text-xs font-semibold text-slate-400 mr-1">Saved Groups</span>
+      {/* Lightweight group tabs, integrated with the existing page rather than a separate card. */}
+      <nav aria-label="Saved symbol groups" className="flex min-w-0 items-center gap-4 border-b border-[#243044] py-1">
+        <div className="flex shrink-0 items-center gap-2 text-slate-400">
+          <span className="material-symbols-outlined !text-[19px] text-[#1463FF]">folder_open</span>
+          <span className="text-sm font-semibold text-slate-300">My Groups</span>
+          <span className="rounded-full bg-[#171920] px-2 py-0.5 text-[11px] font-bold tabular-nums text-slate-400">{savedGroups.length}</span>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap py-1" role="group" aria-label="Choose a saved group">
         {savedGroups.map((group) => (
-          <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg border text-sm font-semibold ${activeGroup?.id === group.id ? 'border-[#1463FF] bg-[#1463FF]/15 text-[#D8E2F0]' : 'border-[#19273c] bg-[#171920] text-slate-300'}`}>
+          <div key={group.id} className={`inline-flex shrink-0 items-center rounded-lg border-b-2 text-sm font-semibold transition-colors ${activeGroup?.id === group.id ? 'border-[#1463FF] bg-[#1463FF]/10 text-white' : 'border-transparent bg-[#171920]/70 text-slate-300 hover:bg-[#1B2433]'}`}>
             <button type="button" aria-current={activeGroup?.id === group.id ? 'true' : undefined}
               onClick={() => {
                 setActiveGroupId(group.id);
@@ -492,16 +497,18 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
                 setSearchQuery('');
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 hover:text-[#1463FF]">
-              {group.name} <span className="text-slate-400 tabular-nums">({group.symbols.length})</span>
+              className="flex max-w-56 items-center gap-2 rounded-l-lg py-2 pl-3 pr-2 hover:text-[#78A6FF]">
+              <span className="truncate" title={group.name}>{group.name}</span>
+              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${activeGroup?.id === group.id ? 'bg-[#1463FF]/25 text-[#9BBEFF]' : 'bg-[#242B37] text-slate-400'}`}>{group.symbols.length}</span>
             </button>
             <button type="button" title={`Delete ${group.name}`} aria-label={`Delete group ${group.name}`}
               onClick={() => handleDeleteGroup(group)}
-              className="border-l border-[#243044] px-2 py-1.5 text-slate-400 hover:text-[#FF4761]">
-              <span className="material-symbols-outlined !text-[15px] align-middle">close</span>
+              className="mr-1 rounded-md p-1.5 text-slate-500 hover:bg-[#FF4761]/10 hover:text-[#FF4761]">
+              <span className="material-symbols-outlined !text-[16px] align-middle">close</span>
             </button>
           </div>
         ))}
+        </div>
       </nav>
 
       {/* Compact single-line symbol toolbar */}
