@@ -217,9 +217,16 @@ export class BacktestService {
     // 1. Resolve REAL contract leverage limits from the exchange's live
     // instrument list. Unknown limits are never replaced by an invented 50x.
     const maxLeverageBySymbol = new Map<string, number>();
+    // Contracts absent from the live instrument list (delisted / invalid) are
+    // skipped like other symbols without full history, not silently priced.
+    const unlistedSymbols = new Set<string>();
     for (const sym of symbols) {
       if (job.stopped) return;
       const meta = await exchangeService.getContractMeta(portfolioConfig.exchange, sym);
+      if (!meta) {
+        unlistedSymbols.add(sym);
+        continue;
+      }
       const exchangeMax = Number(meta?.maxLeverage) || 0;
       if (exchangeMax > 0) {
         maxLeverageBySymbol.set(sym, exchangeMax);
@@ -253,6 +260,12 @@ export class BacktestService {
       const symIdx = nextSymbolIndex++;
       if (symIdx >= symbols.length) return;
       const sym = symbols[symIdx];
+      if (unlistedSymbols.has(sym)) {
+        skippedSymbols.push(sym);
+        processedSymbolCount++;
+        run.logs.push(`[SKIPPED] ${sym}: not an active ${portfolioConfig.exchange} USDT perpetual (delisted or invalid); excluded from the full ${run.testPeriodDays}-day comparison.`);
+        continue;
+      }
 
       job.currentDate = `Loading ${sym} (${loadedSymbolCount}/${symbols.length})`;
 

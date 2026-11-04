@@ -115,7 +115,7 @@ service.getOHLCVCandles = async (_ex: string, symbol: string, _tf: number, count
   return data.slice(-count);
 };
 service.getContractMeta = async (_ex: string, symbol: string) =>
-  leverage.has(symbol) ? { symbol, maxLeverage: leverage.get(symbol) } : undefined;
+  leverage.has(symbol) ? { symbol, maxLeverage: leverage.get(symbol) } : undefined; // undefined = not listed
 service.getBybitFundingHistory = async (symbol: string, from: number, to: number) =>
   (funding.get(symbol) || []).filter((e) => e.time >= from && e.time <= to);
 
@@ -255,10 +255,15 @@ await test('Actual contract leverage: max-leverage mode uses the exchange limit,
   const run = await runAndWait(new BacktestService(), ['DUSDT'], baseConfig({ useMaxLeverage: true }));
   assert.equal(run.trades[0].leverage, 25);
   assert.ok(Math.abs(run.trades[0].margin - 0.4) < 1e-9, 'initial margin = notional / leverage');
-  leverage.delete('DUSDT');
+  leverage.set('DUSDT', 0); // listed, but the exchange publishes no limit
   const unknown = await runAndWait(new BacktestService(), ['DUSDT'], baseConfig({ useMaxLeverage: true }));
   assert.equal(unknown.status, 'FAILED');
   assert.match(unknown.error || '', /not published/);
+  leverage.delete('DUSDT'); // not listed at all: delisted contract is skipped, others still run
+  const delisted = await runAndWait(new BacktestService(), ['DUSDT', 'CUSDT'], baseConfig());
+  assert.equal(delisted.status, 'COMPLETED', delisted.error);
+  assert.ok(delisted.logs.some((l) => l.includes('[SKIPPED] DUSDT')), 'delisted contract skip is logged');
+  assert.ok(delisted.trades.every((t) => t.symbol !== 'DUSDT'));
   leverage.set('DUSDT', 25);
   const tooHigh = await runAndWait(new BacktestService(), ['DUSDT'], baseConfig({ manualLeverage: 50 }));
   assert.equal(tooHigh.status, 'FAILED');
