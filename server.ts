@@ -29,21 +29,54 @@ async function startServer() {
   });
 
   // 2. Symbols
-  app.get('/api/symbols', (req, res) => {
-    const exchange = (req.query.exchange as ExchangeId) || 'bybit';
-    const category = req.query.category as string;
-    const search = (req.query.search as string || '').toUpperCase();
+  app.get('/api/symbols', async (req, res) => {
+    try {
+      const exchange = (req.query.exchange as ExchangeId) || 'bybit';
+      const category = req.query.category as string;
+      const search = String(req.query.search || '').toUpperCase();
+      let symbols = exchange === 'bybit'
+        ? await exchangeService.getBybitSymbols()
+        : exchangeService.getSymbols(exchange);
+      if (category && category.toLowerCase() !== 'all') {
+        symbols = symbols.filter((s) => s.category.toUpperCase() === category.toUpperCase());
+      }
+      if (search) symbols = symbols.filter((s) => s.symbol.includes(search) || s.baseAsset.includes(search));
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(symbols);
+    } catch (e: any) {
+      res.status(502).json({ error: `Exchange symbols unavailable: ${e.message}` });
+    }
+  });
 
-    let symbols = exchangeService.getSymbols(exchange);
-    if (category && category !== 'All' && category !== 'all') {
-      symbols = symbols.filter((s) => s.category.toUpperCase() === category.toUpperCase());
+  // Historical percentage changes for a limited set of visible Bybit USDT perpetual contracts.
+  app.get('/api/symbols/changes', async (req, res) => {
+    const requested = String(req.query.symbols || '').split(',')
+      .map((s) => s.trim().toUpperCase()).filter(Boolean);
+    if (requested.length > 100 || requested.some((s) => !/^[A-Z0-9]{2,35}USDT$/.test(s))) {
+      return res.status(400).json({ error: 'Supply at most 100 valid USDT perpetual symbols' });
     }
-    if (search) {
-      symbols = symbols.filter(
-        (s) => s.symbol.includes(search) || s.baseAsset.includes(search)
-      );
+    try {
+      const allowed = new Set((await exchangeService.getBybitSymbols()).map((s) => s.symbol));
+      const unique = [...new Set(requested)].filter((s) => allowed.has(s));
+      const changes: Record<string, Record<string, number | null>> = {};
+      let index = 0;
+      // Concurrency cap protects Bybit public rate limits.
+      await Promise.all(Array.from({ length: Math.min(4, unique.length) }, async () => {
+        while (index < unique.length) {
+          const symbol = unique[index++];
+          try {
+            changes[symbol] = await exchangeService.getBybitTimeframeChanges(symbol);
+          } catch (e: any) {
+            console.warn(`Unable to load Bybit returns for ${symbol}: ${e.message}`);
+            changes[symbol] = {};
+          }
+        }
+      }));
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(changes);
+    } catch (e: any) {
+      res.status(502).json({ error: e.message });
     }
-    res.json(symbols);
   });
 
   // 3. Saved Symbol Groups
