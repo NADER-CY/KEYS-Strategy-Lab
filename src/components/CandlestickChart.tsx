@@ -49,6 +49,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<any> | null>(null);
+  const markerPluginRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
   const lineSeriesMapRef = useRef<Map<string, ISeriesApi<any>>>(new Map());
   const candlesRef = useRef<OHLCV[]>(candles);
   const plottedCandlesRef = useRef<OHLCV[]>([]);
@@ -130,6 +131,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       wickDownColor: '#FF4761'
     });
     candleSeriesRef.current = candleSeries as any;
+    markerPluginRef.current = createSeriesMarkers(candleSeries as any, []);
     plottedCandlesRef.current = [];
 
     // Hover tooltip tracking
@@ -167,6 +169,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       if (chartApiRef.current) {
         chartApiRef.current.remove();
         chartApiRef.current = null;
+        markerPluginRef.current = null;
       }
     };
   }, [height, isFullscreen]);
@@ -176,6 +179,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     if (!chartApiRef.current || !candleSeriesRef.current) return;
     if (!candles || candles.length === 0) {
       candleSeriesRef.current.setData([]);
+      markerPluginRef.current?.setMarkers([]);
       plottedCandlesRef.current = [];
       candlesRef.current = [];
       setHoveredCandle(null);
@@ -183,6 +187,15 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
 
     candlesRef.current = candles;
+
+    // Keep small-cap perpetual prices legible instead of displaying 0.00.
+    const referencePrice = candles[candles.length - 1].close;
+    const precision = referencePrice > 0
+      ? Math.max(2, Math.min(8, Math.ceil(-Math.log10(referencePrice)) + 3))
+      : 2;
+    candleSeriesRef.current.applyOptions({
+      priceFormat: { type: 'price', precision, minMove: 10 ** -precision }
+    });
 
     const formattedCandles: CandlestickData<Time>[] = candles.map((c) => ({
       time: c.time as Time,
@@ -286,9 +299,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
 
     markers.sort((a, b) => Number(a.time) - Number(b.time));
-    if (markers.length > 0) {
-      createSeriesMarkers(candleSeriesRef.current, markers);
-    }
+    markerPluginRef.current?.setMarkers(markers);
 
     // Only auto-fit zoom when symbol or timeframe changes, NOT on every 3s live tick update
     if (prevSymbolRef.current !== symbol || prevTfRef.current !== timeframeMinutes) {
