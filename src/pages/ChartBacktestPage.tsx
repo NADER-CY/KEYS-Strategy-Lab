@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CandlestickChart } from '../components/CandlestickChart';
 import {
   PortfolioConfig,
@@ -10,7 +10,7 @@ import {
   IndicatorSignals,
   BacktestRun
 } from '../types';
-import { calculateKeysIndicator } from '../engine/indicatorCalculations';
+import { calculateKeysIndicator, toHeikinAshiCandles } from '../engine/indicatorCalculations';
 import { parsePineScriptInputs, validatePineScript } from '../engine/defaultPineScripts';
 
 interface ChartBacktestPageProps {
@@ -109,6 +109,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
   const [chartHistoryDays, setChartHistoryDays] = useState<number>(0);
   const chartHistoryBars = chartHistoryDays === 0 ? 400 : Math.ceil(chartHistoryDays * 1440 / chartTimeframe);
   const [candles, setCandles] = useState<OHLCV[]>([]);
+  const displayCandles = useMemo(() => toHeikinAshiCandles(candles), [candles]);
   const [signals, setSignals] = useState<IndicatorSignals | undefined>(undefined);
   const [loadingChart, setLoadingChart] = useState<boolean>(false);
   const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
@@ -427,7 +428,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
             <option value={180}>6 Months</option>
             <option value={365}>1 Year</option>
           </select>
-          <span>{candles.length.toLocaleString()} real candles</span>
+          <span>{candles.length.toLocaleString()} Heikin Ashi candles (real Bybit volume)</span>
           {loadingChart && <span className="text-blue-400">Loading…</span>}
           <span className="text-[#0BBA74]">BUY {signals?.buySignals.length ?? 0}</span>
           <span className="text-[#FF4761]">SELL {signals?.sellSignals.length ?? 0}</span>
@@ -436,7 +437,7 @@ export const ChartBacktestPage: React.FC<ChartBacktestPageProps> = ({
           symbol={displayedSymbol}
           onSymbolChange={setCurrentSymbol}
           availableSymbols={chartSymbolList}
-          candles={candles}
+          candles={displayCandles}
           signals={signals}
           timeframeMinutes={chartTimeframe}
           onTimeframeChange={setChartTimeframe}
