@@ -17,6 +17,7 @@ import { storageService } from '../server/storage';
 import { BacktestService } from '../server/backtestService';
 import { SAVED_INDICATORS_DEFAULT } from '../src/engine/defaultPineScripts';
 import { markOpenPositionsAtEnd } from '../src/engine/openPositionValuation';
+import { calculateExecutedEntryPrice } from '../src/engine/executionPrice';
 import { OHLCV, PortfolioConfig, PnLConfig, PositionTrade } from '../src/types';
 
 interface TestResult {
@@ -76,6 +77,9 @@ async function runTestSuite() {
   assert(heldPosition.status === 'OPEN' && !heldPosition.exitTime && !heldPosition.exitReason,
     'End-of-window valuation must preserve open position and avoid synthetic exit');
   assert(heldPosition.feePaid === 0.0055, 'End-of-window valuation must not charge an exit fee');
+  const microPrice = calculateExecutedEntryPrice(0.038123, 'SELL', 0.05);
+  assert(microPrice > 0.038 && microPrice < 0.039 && microPrice !== 0.04,
+    'Sub-cent futures entry prices must not be rounded to fiat cents');
   const sarDefault = SAVED_INDICATORS_DEFAULT.find((indicator) => indicator.id === 'keys_v6')
     ?.params.find((param) => param.name === 'useSARFilter');
   assert(sarDefault?.default === true && sarDefault.value === true,
