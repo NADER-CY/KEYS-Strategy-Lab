@@ -299,7 +299,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
   return (
     <div className="space-y-4 pb-12 animate-fadeIn text-[#A6B4C8] [&_.text-white]:text-[#D8E2F0] [&_.text-slate-100]:text-[#D8E2F0] [&_.text-slate-200]:text-[#C5D0DE] [&_.text-slate-300]:text-[#A6B4C8] [&_.text-slate-400]:text-[#8393AA]">
       {/* ─── TOP SECTION: EXCHANGE & SYMBOL GROUP SELECTORS ─────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-4">
+      <section className="bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <span className="material-symbols-outlined text-blue-400 !text-2xl">dataset</span>
@@ -360,7 +360,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         </div>
 
         {/* Two Primary Selectors: Exchange & Saved Symbol Group */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-3 border-t border-[#142033]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-3">
           <div className="lg:col-span-4">
             <label className="block text-sm font-medium text-slate-300 mb-1">
               1. Cryptocurrency Exchange
@@ -420,7 +420,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       </section>
 
       {/* ─── FILTERS, SEARCH & DYNAMIC 100-SYMBOL TABS ─────────────────── */}
-      <section className="bg-[#0b1019] border border-[#172338] rounded-xl p-4 space-y-3">
+      <section className="bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
         {/* Category Pills Row */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
@@ -473,7 +473,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         </div>
 
         {/* Search & Bulk Quick Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#142033]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="relative w-80">
             <input
               type="text"
@@ -536,7 +536,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       </section>
 
       {/* Compact full-width table: neutral background, no outer border or horizontal scrolling. */}
-      <section className="min-w-0 w-full bg-transparent border-0 rounded-none px-0 py-2 space-y-3">
+      <section className="min-w-0 w-full bg-transparent border-0 border-b border-[#243044] rounded-none px-0 py-4 space-y-3">
         <div className="text-sm font-semibold text-[#D8E2F0]">Futures Contracts</div>
         {symbolsError && <div className="p-4 text-rose-400 font-semibold" role="alert">{symbolsError}</div>}
         {loadingChanges && currentExchange === 'bybit' && <div className="text-xs text-slate-400">Loading historical returns from Bybit...</div>}
@@ -624,7 +624,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             </table>
           </div>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#142033] text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 text-sm">
           <span className="text-slate-300 tabular-nums">
             {sortedChunkSymbols.length === 0 ? 0 : firstRowIndex + 1}–{Math.min(firstRowIndex + rowsPerPage, sortedChunkSymbols.length)} of {sortedChunkSymbols.length} symbols
             <span className="text-slate-500 ml-2">(total {filteredUniverse.length} matching exchange symbols)</span>
@@ -639,7 +639,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
         </div>
 
         {/* Bottom Actions Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#142033]">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-3">
           <div className="flex items-center space-x-3">
             <span className="text-sm font-semibold text-slate-300">Group Name:</span>
             <input
