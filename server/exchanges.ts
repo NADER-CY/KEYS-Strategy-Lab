@@ -534,6 +534,54 @@ export class ExchangeDataService {
     return this.aggregateCandles(baseCandles, timeframeMinutes).slice(-requiredCount);
   }
 
+  /** Cursor-paginated older candles for the chart's one-year lazy history. */
+  async getOHLCVCandlesBefore(
+    exchangeId: ExchangeId,
+    symbol: string,
+    timeframeMinutes: number,
+    beforeSeconds: number,
+    requestedCount = 1000
+  ): Promise<OHLCV[]> {
+    const count = Math.max(1, Math.min(1000, Math.floor(requestedCount)));
+    const nativeBybitInterval = exchangeId === 'bybit' &&
+      [5, 15, 30, 60, 120, 240, 1440, 10080, 43200].includes(timeframeMinutes);
+    const baseInterval = nativeBybitInterval ? timeframeMinutes : timeframeMinutes % 5 === 0 ? 5 : 1;
+    const factor = timeframeMinutes / baseInterval;
+    const normalizedSymbol = symbol.toUpperCase();
+    const cacheFile = path.join(this.cacheDir, `${exchangeId}_${normalizedSymbol}_${baseInterval}m_base.json`);
+    let cached: OHLCV[] = [];
+    try {
+      if (fs.existsSync(cacheFile)) {
+        const parsed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        if (Array.isArray(parsed)) cached = parsed;
+      }
+    } catch { /* Corrupted cache must not prevent a real exchange fetch. */ }
+
+    const buildPage = (base: OHLCV[]) => {
+      const candles = factor === 1 ? base : this.aggregateCandles(base, timeframeMinutes);
+      return candles.filter((c) => c.time < beforeSeconds).slice(-count);
+    };
+    let page = buildPage(cached);
+    // Only return cached data if it covers the whole requested page. Otherwise
+    // fetch the older cursor from the exchange rather than looping on a short
+    // cache snapshot and claiming one year was loaded.
+    if (page.length >= count) return page;
+
+    const oldestCached = cached.length ? cached[0].time : Infinity;
+    const additional = await this.downloadPaginatedKlines(
+      exchangeId, normalizedSymbol, baseInterval,
+      Math.ceil(count * factor) + factor * 2,
+      Math.min(beforeSeconds * 1000 - 1, oldestCached * 1000 - 1)
+    );
+    if (additional.length === 0) return page;
+    const merged = new Map<number, OHLCV>();
+    cached.forEach((c) => merged.set(c.time, c));
+    additional.forEach((c) => merged.set(c.time, c));
+    const all = [...merged.values()].sort((a, b) => a.time - b.time);
+    try { fs.writeFileSync(cacheFile, JSON.stringify(all), 'utf8'); } catch { /* Best effort disk cache. */ }
+    return buildPage(all);
+  }
+
   /**
    * Fetches real base candles using pagination and incremental disk caching.
    */
@@ -641,10 +689,11 @@ export class ExchangeDataService {
     exchangeId: ExchangeId,
     symbol: string,
     intervalMinutes: number,
-    targetCount: number
+    targetCount: number,
+    initialEndTimeMs = Date.now()
   ): Promise<OHLCV[]> {
     let collected: OHLCV[] = [];
-    let endTimeMs = Date.now();
+    let endTimeMs = initialEndTimeMs;
     // A year of 5m candles needs ~106 Bybit pages. The old 15-page ceiling
     // silently truncated long backtests to only a few weeks.
     const pageCapacity = exchangeId === 'bybit' ? 1000 : exchangeId === 'binance' ? 1500 :
