@@ -435,6 +435,9 @@ export class BacktestService {
 
     // 5. Main Time Loop
     for (let barIdx = 0; barIdx < timeline.length; barIdx++) {
+      // Keep the server responsive to progress polls and Stop requests during
+      // large multi-symbol simulations instead of blocking the event loop.
+      if (barIdx % 32 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
       if (job.stopped) break;
 
       const curTime = timeline[barIdx];
