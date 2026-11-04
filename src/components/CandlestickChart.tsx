@@ -58,6 +58,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const prevTfRef = useRef<number>(timeframeMinutes);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [activeTool, setActiveTool] = useState<string>('pointer');
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [showIndicators, setShowIndicators] = useState<boolean>(showIndicatorsProp);
@@ -135,6 +136,14 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     markerPluginRef.current = createSeriesMarkers(candleSeries as any, []);
     plottedCandlesRef.current = [];
 
+    const updateLiveArrow = () => {
+      const visible = chart.timeScale().getVisibleLogicalRange();
+      const lastIndex = plottedCandlesRef.current.length - 1;
+      if (!visible || lastIndex < 0) return;
+      setShowJumpToLive(visible.to < lastIndex - 2);
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(updateLiveArrow);
+
     // Hover tooltip tracking
     chart.subscribeCrosshairMove((param) => {
       if (
@@ -168,6 +177,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     window.addEventListener('resize', handleResize);
     return () => {
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(updateLiveArrow);
       window.removeEventListener('resize', handleResize);
       if (chartApiRef.current) {
         chartApiRef.current.remove();
@@ -315,6 +325,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       prevSymbolRef.current = symbol;
       prevTfRef.current = timeframeMinutes;
       chartApiRef.current.timeScale().fitContent();
+      setShowJumpToLive(false);
     }
   }, [candles, signals, selectedTrade, showIndicators, symbol, timeframeMinutes]);
 
@@ -507,6 +518,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
         {/* Lightweight Charts Canvas Container */}
         <div ref={chartContainerRef} className="flex-1 w-full h-full" />
+
+        {showJumpToLive && (
+          <button
+            type="button"
+            onClick={() => {
+              chartApiRef.current?.timeScale().scrollToRealTime();
+              setShowJumpToLive(false);
+            }}
+            title="Go to latest candle"
+            aria-label="Go to latest live candle"
+            className="absolute bottom-12 right-14 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-blue-500/60 bg-[#1463FF] text-white shadow-lg hover:bg-blue-500 transition"
+          >
+            <span className="material-symbols-outlined !text-[23px]">arrow_forward</span>
+          </button>
+        )}
 
         {/* Legend Overlay - Minimal when clean, detailed only when overlays enabled */}
         {showIndicators && (
