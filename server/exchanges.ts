@@ -353,7 +353,7 @@ export class ExchangeDataService {
           .map((s: any) => {
             const t: any = tick.get(s.symbol) || {};
             return { symbol: s.symbol, base: s.baseCoin, price: num(t.lastPr),
-              change: num(t.change24h) * 100, volume: num(t.usdtVolume),
+              change: num(t.change24h) * 100, volume: num(t.usdtVolume || t.quoteVolume), funding: num(t.fundingRate) * 100,
               leverage: num(s.maxLever), step: Number(`1e-${num(s.volumePlace)}`),
               tick: Number(`1e-${num(s.pricePlace)}`) };
           });
@@ -364,14 +364,14 @@ export class ExchangeDataService {
         if (result.code !== '200000') throw new Error('KuCoin API error');
         contracts = (result.data || []).filter((s: any) =>
           s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' &&
-          s.status === 'Open' || s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' && s.status === 'open'
-          || s.quoteCurrency === 'USDT' && s.settleCurrency === 'USDT' && s.open === true)
+          s.status === 'Open' && !s.expireDate)
           .map((s: any) => {
             const base = String(s.baseCurrency || '').toUpperCase();
             const normalized = base === 'XBT' ? 'BTC' : base;
             return { symbol: normalized + 'USDT', base: normalized, price: num(s.lastTradePrice || s.markPrice),
               change: num(s.priceChgPct) * 100, volume: num(s.turnoverOf24h),
-              leverage: s.initialMargin ? Math.round(1 / num(s.initialMargin)) : 0,
+              funding: num(s.fundingFeeRate) * 100,
+              leverage: num(s.maxLeverage),
               tick: num(s.tickSize), step: num(s.lotSize) };
           });
         break;
@@ -384,7 +384,7 @@ export class ExchangeDataService {
         if (!Array.isArray(list) || !Array.isArray(tickers)) throw new Error('Gate futures response invalid');
         const tick = new Map(tickers.map((t: any) => [t.contract, t]));
         contracts = list.filter((s: any) => String(s.name).endsWith('_USDT') &&
-          !s.in_delisting && !s.is_delisted)
+          !s.in_delisting && !s.is_delisted && s.type !== 'inverse')
           .map((s: any) => {
             const t: any = tick.get(s.name) || {};
             const base = String(s.name).split('_')[0];
@@ -410,8 +410,8 @@ export class ExchangeDataService {
             return { symbol: String(s.symbol).replace('_', ''), base: s.baseCoin,
               price: num(t.lastPrice), change: num(t.riseFallRate) * 100,
               volume: num(t.amount24), leverage: num(s.maxLeverage),
-              tick: Number(`1e-${num(s.priceScale)}`),
-              step: Number(`1e-${num(s.volScale)}`), funding: num(t.fundingRate) * 100 };
+              tick: num(s.priceUnit) || Number(`1e-${num(s.priceScale)}`),
+              step: num(s.volUnit) || Number(`1e-${num(s.volScale)}`), funding: num(t.fundingRate) * 100 };
           });
         break;
       }
