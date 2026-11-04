@@ -180,7 +180,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
 
   const handleSaveAsNewTab = async (copySelection = false) => {
     const nameInput = window.prompt(
-      copySelection ? 'Enter a name for the duplicated group:' : 'Enter a name for the new empty group:',
+      copySelection ? 'Enter a name for the duplicated group:' : `Enter a name for the new group (${selectedSymbols.length} selected symbols):`,
       ''
     );
     if (nameInput === null) return;
@@ -193,7 +193,7 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
       id: `group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name,
       exchange: currentExchange,
-      symbols: copySelection ? [...selectedSymbols] : [],
+      symbols: [...new Set(selectedSymbols)],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
