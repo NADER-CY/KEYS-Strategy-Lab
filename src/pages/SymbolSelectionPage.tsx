@@ -33,7 +33,7 @@ interface SymbolSelectionPageProps {
   currentExchange: ExchangeId;
   onExchangeChange: (ex: ExchangeId) => void;
   savedGroups: SavedSymbolGroup[];
-  onSaveGroup: (group: SavedSymbolGroup) => void;
+  onSaveGroup: (group: SavedSymbolGroup) => Promise<void>;
   onDeleteGroup: (id: string) => void;
   onApplyUniverseToBacktest: (groupId: string, autoRun?: boolean) => void;
   onNavigateToPage?: (page: 'chart' | 'results' | 'positions' | 'symbols') => void;
@@ -189,6 +189,28 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
     setActiveGroupId(newId);
     setSelectedSymbols([...newGroup.symbols]);
     setTabName(newGroup.name);
+  };
+
+  const handleRenameGroup = async () => {
+    if (!activeGroup) return;
+    const input = window.prompt('New name for this symbol group:', activeGroup.name);
+    if (input === null) return;
+    const name = input.trim();
+    if (!name) {
+      alert('Group name cannot be empty.');
+      return;
+    }
+    if (name === activeGroup.name) return;
+    if (savedGroups.some((group) => group.id !== activeGroup.id && group.name.toLowerCase() === name.toLowerCase())) {
+      alert('A group with this name already exists. Choose another name.');
+      return;
+    }
+    try {
+      await onSaveGroup({ ...activeGroup, name, updatedAt: new Date().toISOString() });
+      setTabName(name);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to rename this group.');
+    }
   };
 
   const handleDuplicateTab = () => {
@@ -381,17 +403,25 @@ export const SymbolSelectionPage: React.FC<SymbolSelectionPageProps> = ({
             <label className="block text-sm font-medium text-slate-300 mb-1">
               2. Saved Symbol Group (Basket Profile)
             </label>
-            <select
-              value={activeGroupId}
-              onChange={(e) => setActiveGroupId(e.target.value)}
-              className="w-full bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer"
-            >
-              {savedGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} — {g.symbols.length} symbols ({g.exchange.toUpperCase()})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                value={activeGroup?.id || ''}
+                onChange={(e) => setActiveGroupId(e.target.value)}
+                className="min-w-0 flex-1 bg-[#171920] border border-[#19273c] rounded-lg px-3 py-2 text-base font-semibold text-slate-100 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {savedGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} — {g.symbols.length} symbols ({g.exchange.toUpperCase()})
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={handleRenameGroup} disabled={!activeGroup}
+                title="Rename selected group without changing its symbols"
+                className="shrink-0 flex items-center gap-1.5 rounded-lg border border-[#19273c] bg-[#171920] px-3 py-2 text-sm font-semibold text-slate-300 hover:text-[#1463FF] disabled:opacity-40">
+                <span className="material-symbols-outlined !text-[18px]">edit</span>
+                Rename
+              </button>
+            </div>
           </div>
 
           <div className="lg:col-span-3 flex items-end gap-2">
