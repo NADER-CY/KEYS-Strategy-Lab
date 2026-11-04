@@ -140,6 +140,27 @@ async function startServer() {
     }
   });
 
+  // Fetch older chart candles in bounded pages. Large one-year history no
+  // longer blocks the initial chart or requires a single long HTTP request.
+  app.get('/api/candles/history-page', async (req, res) => {
+    try {
+      const exchange = (req.query.exchange as ExchangeId) || 'bybit';
+      const symbol = (req.query.symbol as string) || 'BTCUSDT';
+      const timeframe = Number(req.query.timeframe) || 15;
+      const before = Number(req.query.before);
+      if (!Number.isFinite(before) || before <= 0) {
+        return res.status(400).json({ error: 'Valid before timestamp required.' });
+      }
+      const candles = await exchangeService.getOHLCVCandlesBefore(
+        exchange, symbol, timeframe, before, Number(req.query.limit) || 1000
+      );
+      res.set('Cache-Control', 'no-store');
+      res.json(candles);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // 5. Indicators
   app.get('/api/indicators', (req, res) => {
     res.json(storageService.getIndicators());
